@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Status {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  POSTPONED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String?
+  avatar    String?
+  timezone  String   @default("Asia/Tashkent")
+  theme     String   @default("system")
+  language  String   @default("uz")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tasks     Task[]
+  categories Category[]
+  streaks   Streak[]
+  accounts  Account[]
+  sessions  Session[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  title       String
+  description String?   @db.Text
+  status      Status    @default(PENDING)
+  priority    Priority  @default(MEDIUM)
+  dueDate     DateTime?
+  dueTime     DateTime?
+  isRecurring Boolean   @default(false)
+  recurrence  String?
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  subtasks    SubTask[]
+  attachments Attachment[]
+  reminders   Reminder[]
+  tags        Tag[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+  archivedAt  DateTime?
+}
+
+model Category {
+  id     String @id @default(cuid())
+  name   String
+  color  String @default("#6366F1")
+  icon   String?
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+  tasks  Task[]
+}
+
+model SubTask {
+  id        String  @id @default(cuid())
+  title     String
+  completed Boolean @default(false)
+  taskId    String
+  task      Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model Tag {
+  id     String  @id @default(cuid())
+  name   String
+  color  String?
+  userId String
+  tasks  Task[]
+}
+
+model Reminder {
+  id       String   @id @default(cuid())
+  taskId   String
+  task     Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  remindAt DateTime
+  type     String   @default("push")
+  sent     Boolean  @default(false)
+}
+
+model Attachment {
+  id       String @id @default(cuid())
+  name     String
+  url      String
+  type     String
+  size     Int
+  taskId   String
+  task     Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model Streak {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  currentStreak Int       @default(0)
+  longestStreak Int       @default(0)
+  lastActive    DateTime?
+}
