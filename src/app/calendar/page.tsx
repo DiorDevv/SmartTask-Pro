@@ -22,10 +22,24 @@ import {
   isSameDay,
   isToday,
 } from "date-fns";
+import { useTasks } from "@/hooks/use-tasks";
+import { TaskStatus, STATUS_CONFIG } from "@/types";
+import { TaskModal } from "@/components/tasks/task-modal";
+
+const STATUS_COLORS: Record<string, string> = {
+  PENDING: "bg-warning",
+  IN_PROGRESS: "bg-info",
+  COMPLETED: "bg-success",
+  FAILED: "bg-danger",
+  POSTPONED: "bg-orange-500",
+  CANCELLED: "bg-gray-500",
+};
 
 export default function CalendarPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showNewTask, setShowNewTask] = useState(false);
+  const { data: tasks = [] } = useTasks();
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(monthStart);
@@ -44,19 +58,17 @@ export default function CalendarPage() {
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
 
-  const events: Record<string, { title: string; color: string }[]> = {
-    "2026-07-07": [
-      { title: "Tonggi mashq", color: "bg-success" },
-      { title: "Jamoa yig'ilishi", color: "bg-primary" },
-      { title: "Code Review", color: "bg-info" },
-    ],
-    "2026-07-08": [
-      { title: "Kitob o'qish", color: "bg-secondary" },
-    ],
-    "2026-07-10": [
-      { title: "Client call", color: "bg-warning" },
-    ],
-  };
+  const events: Record<string, { title: string; status: string; color: string }[]> = {};
+  tasks.forEach((task) => {
+    if (!task.dueDate) return;
+    const dateKey = format(new Date(task.dueDate), "yyyy-MM-dd");
+    if (!events[dateKey]) events[dateKey] = [];
+    events[dateKey].push({
+      title: task.title,
+      status: task.status,
+      color: STATUS_COLORS[task.status] || "bg-gray-500",
+    });
+  });
 
   return (
     <div className="space-y-6">
@@ -65,7 +77,7 @@ export default function CalendarPage() {
           <h1 className="text-2xl font-bold text-text dark:text-text-dark">Taqvim</h1>
           <p className="text-muted text-sm mt-1">Vazifalaringizni taqvimda ko'ring</p>
         </div>
-        <button className="btn-primary btn-md">
+        <button className="btn-primary btn-md" onClick={() => setShowNewTask(true)}>
           <Plus className="w-4 h-4" />
           Tadbir qo'shish
         </button>
@@ -190,28 +202,42 @@ export default function CalendarPage() {
           <div className="card p-4">
             <h3 className="font-semibold text-text dark:text-text-dark mb-3">Tezkor filtrlar</h3>
             <div className="space-y-2">
-              {[
-                { label: "Bugun", color: "bg-primary", active: true },
-                { label: "Ertaga", color: "bg-info" },
-                { label: "Shu hafta", color: "bg-success" },
-                { label: "Muddati o'tgan", color: "bg-danger" },
-              ].map((filter) => (
-                <button
-                  key={filter.label}
-                  className={`flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg transition-colors ${
-                    filter.active
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted hover:bg-gray-50 dark:hover:bg-gray-800"
-                  }`}
-                >
-                  <div className={`w-2 h-2 rounded-full ${filter.color}`} />
-                  {filter.label}
-                </button>
-              ))}
+              {(() => {
+                const today = new Date();
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const weekEnd = new Date(today);
+                weekEnd.setDate(weekEnd.getDate() + (7 - weekEnd.getDay()));
+                return [
+                  { label: "Bugun", date: today, color: "bg-primary" },
+                  { label: "Ertaga", date: tomorrow, color: "bg-info" },
+                  { label: "Shu hafta", date: weekEnd, color: "bg-success" },
+                  { label: "Muddati o'tgan", color: "bg-danger", isOverdue: true },
+                ].map((filter) => (
+                  <button
+                    key={filter.label}
+                    onClick={() => {
+                      const d = filter.isOverdue
+                        ? tasks.find(t => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "COMPLETED")?.dueDate
+                        : filter.date;
+                      if (d) setSelectedDate(new Date(d));
+                    }}
+                    className={`flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg transition-colors ${
+                      false
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted hover:bg-gray-50 dark:hover:bg-gray-800"
+                    }`}
+                  >
+                    <div className={`w-2 h-2 rounded-full ${filter.color}`} />
+                    {filter.label}
+                  </button>
+                ));
+              })()}
             </div>
           </div>
         </div>
       </div>
+      {showNewTask && <TaskModal onClose={() => setShowNewTask(false)} />}
     </div>
   );
 }

@@ -107,7 +107,7 @@ export default function LoginPage() {
                 <input type="checkbox" className="rounded border-gray-600 bg-white/5 text-indigo-500 focus:ring-indigo-500/40" />
                 Eslab qolish
               </label>
-              <button type="button" className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
+              <button type="button" onClick={() => router.push("/settings")} className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
                 Parolni unutdingizmi?
               </button>
             </div>

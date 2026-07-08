@@ -19,7 +19,7 @@ export const useThemeStore = create<ThemeStore>((set) => ({
   theme: "system",
   setTheme: (theme) => {
     set({ theme });
-    localStorage.setItem("theme", theme);
+    if (typeof window !== "undefined") localStorage.setItem("theme", theme);
     applyTheme(theme);
   },
 }));

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import {
   Bell,
@@ -16,27 +17,36 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useThemeStore } from "@/store/theme-store";
 
 export function Navbar() {
+  const router = useRouter();
   const { data: session } = useSession();
   const { theme, setTheme } = useThemeStore();
   const [showProfile, setShowProfile] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const isDark = theme === "dark";
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) router.push(`/tasks?search=${encodeURIComponent(searchQuery.trim())}`);
+  };
 
   return (
     <header className="fixed top-0 right-0 left-64 h-16 glass z-20 flex items-center justify-between px-6">
       <div className="flex items-center gap-4 flex-1 max-w-lg">
-        <div className="relative w-full">
+        <form onSubmit={handleSearch} className="relative w-full">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Vazifalarni qidirish... (Ctrl+K)"
             className="w-full h-10 pl-10 pr-3 rounded-xl bg-gray-100/50 dark:bg-gray-800/50 border border-gray-200/50 dark:border-gray-700/50 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
           />
           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gray-200/50 dark:bg-gray-700/50 text-[10px] font-medium text-gray-400">
             <Command className="w-3 h-3" />K
           </div>
-        </div>
+        </form>
       </div>
 
       <div className="flex items-center gap-1">
@@ -110,9 +120,13 @@ export function Navbar() {
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300 hidden sm:block">
               {session?.user?.name || "Foydalanuvchi"}
             </span>
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-sm font-semibold shadow-lg shadow-indigo-500/20">
-              {session?.user?.name?.[0]?.toUpperCase() || "U"}
-            </div>
+            {(session?.user as any)?.avatar ? (
+              <img src={(session?.user as any).avatar} alt="" className="w-8 h-8 rounded-xl object-cover shadow-lg shadow-indigo-500/20" />
+            ) : (
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-sm font-semibold shadow-lg shadow-indigo-500/20">
+                {session?.user?.name?.[0]?.toUpperCase() || "U"}
+              </div>
+            )}
           </motion.button>
 
           <AnimatePresence>
@@ -132,11 +146,12 @@ export function Navbar() {
                 </div>
                 <div className="space-y-0.5">
                   {[
-                    { icon: User, label: "Profil" },
-                    { icon: Settings, label: "Sozlamalar" },
-                  ].map(({ icon: Icon, label }) => (
+                    { icon: User, label: "Profil", href: "/settings" },
+                    { icon: Settings, label: "Sozlamalar", href: "/settings" },
+                  ].map(({ icon: Icon, label, href }) => (
                     <button
                       key={label}
+                      onClick={() => { setShowProfile(false); router.push(href); }}
                       className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all"
                     >
                       <Icon className="w-4 h-4" />
@@ -145,7 +160,7 @@ export function Navbar() {
                   ))}
                   <div className="border-t border-gray-100 dark:border-gray-800 pt-0.5 mt-0.5">
                     <button
-                      onClick={() => signOut()}
+                      onClick={() => signOut({ callbackUrl: "/auth/login" })}
                       className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
                     >
                       <LogOut className="w-4 h-4" />

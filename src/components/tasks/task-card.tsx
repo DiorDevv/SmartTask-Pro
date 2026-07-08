@@ -82,7 +82,7 @@ export function TaskCard({ task, onStatusChange, onEdit, onDelete }: TaskCardPro
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2.5 flex-wrap">
-            <div className={`w-2 h-2 rounded-full ${priorityDots[task.priority]} flex-shrink-0`} />
+            <div className={`w-2 h-2 rounded-full ${priorityDots[task.priority] || "bg-gray-400"} flex-shrink-0`} />
             <h3
               className={cn(
                 "text-sm font-semibold text-gray-900 dark:text-gray-100 leading-5",

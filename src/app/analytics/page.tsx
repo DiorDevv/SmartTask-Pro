@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   BarChart3,
@@ -8,6 +9,7 @@ import {
   Download,
   Calendar,
   ArrowUp,
+  LoaderCircle,
 } from "lucide-react";
 import {
   BarChart,
@@ -24,40 +26,106 @@ import {
   Area,
 } from "recharts";
 import { ProgressBar } from "@/components/dashboard/progress-bar";
+import { useTasks } from "@/hooks/use-tasks";
+import { useStreak } from "@/hooks/use-streak";
+import { useThemeStore } from "@/store/theme-store";
+import { TaskStatus, TaskPriority } from "@/types";
+import { startOfWeek, addDays, format } from "date-fns";
+import { uz } from "date-fns/locale";
 
-const weeklyData = [
-  { day: "Du", completed: 5, total: 8 },
-  { day: "Se", completed: 7, total: 9 },
-  { day: "Ch", completed: 3, total: 7 },
-  { day: "Pa", completed: 8, total: 10 },
-  { day: "Ju", completed: 6, total: 8 },
-  { day: "Sh", completed: 4, total: 5 },
-  { day: "Ya", completed: 2, total: 4 },
-];
-
-const monthlyTrend = [
-  { month: "Yan", tasks: 45, completed: 32 },
-  { month: "Fev", tasks: 52, completed: 40 },
-  { month: "Mar", tasks: 48, completed: 36 },
-  { month: "Apr", tasks: 60, completed: 48 },
-  { month: "May", tasks: 55, completed: 42 },
-  { month: "Iyun", tasks: 58, completed: 45 },
-  { month: "Iyul", tasks: 35, completed: 28 },
-];
-
-const categoryData = [
-  { name: "Ish", value: 45, color: "#6366F1" },
-  { name: "Shaxsiy", value: 20, color: "#8B5CF6" },
-  { name: "O'qish", value: 15, color: "#10B981" },
-  { name: "Sport", value: 12, color: "#F59E0B" },
-  { name: "Salomatlik", value: 8, color: "#EF4444" },
-];
-
-const heatmapData = Array.from({ length: 7 }, () =>
-  Array.from({ length: 24 }, () => Math.floor(Math.random() * 5))
-);
+const COLORS = ["#6366F1", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444", "#EC4899", "#06B6D4"];
 
 export default function AnalyticsPage() {
+  const { data: tasks = [], isLoading } = useTasks();
+  const { data: streak } = useStreak();
+  const theme = useThemeStore((s) => s.theme);
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const check = () => setIsDark(
+      theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)
+    );
+    check();
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    mq.addEventListener("change", check);
+    return () => mq.removeEventListener("change", check);
+  }, [theme]);
+  const chartStroke = isDark ? "#334155" : "#E2E8F0";
+  const chartText = isDark ? "#94A3B8" : "#64748B";
+
+  const { totalTasks, completedCount, completionRate, weeklyData, categoryData, monthlyTrend, heatmapData } = useMemo(() => {
+    const tt = tasks.length;
+    const cc = tasks.filter((t) => t.status === TaskStatus.COMPLETED).length;
+    const cr = tt > 0 ? Math.round((cc / tt) * 100) : 0;
+
+    const today = new Date();
+    const weekStart = startOfWeek(today, { weekStartsOn: 1 });
+    const wd = Array.from({ length: 7 }, (_, i) => {
+      const dayDate = addDays(weekStart, i);
+      const dayKey = format(dayDate, "yyyy-MM-dd");
+      const dayTasks = tasks.filter((t) => {
+        if (!t.dueDate) return false;
+        const d = format(new Date(t.dueDate), "yyyy-MM-dd");
+        return d === dayKey;
+      });
+      return {
+        day: format(dayDate, "EEEEEE", { locale: uz }),
+        completed: dayTasks.filter((t) => t.status === TaskStatus.COMPLETED).length,
+        total: dayTasks.length,
+      };
+    });
+
+    const catMap = new Map<string, number>();
+    tasks.forEach((t) => {
+      const name = t.category?.name || "Boshqa";
+      catMap.set(name, (catMap.get(name) || 0) + 1);
+    });
+    const cd = tt > 0 ? Array.from(catMap.entries()).map(([name, value], i) => ({
+      name,
+      value,
+      color: COLORS[i % COLORS.length],
+    })) : [];
+
+    const now = new Date();
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+    const mt = Array.from({ length: 7 }, (_, i) => {
+      const m = new Date(sixMonthsAgo.getFullYear(), sixMonthsAgo.getMonth() + i, 1);
+      const monthKey = format(m, "yyyy-MM");
+      const monthTasks = tasks.filter((t) => {
+        if (!t.dueDate) return false;
+        return format(new Date(t.dueDate), "yyyy-MM") === monthKey;
+      });
+      return {
+        month: format(m, "MMM", { locale: uz }),
+        tasks: monthTasks.length,
+        completed: monthTasks.filter((t) => t.status === TaskStatus.COMPLETED).length,
+      };
+    });
+
+    const hm = Array.from({ length: 7 }, (_, dayOffset) => {
+      const date = addDays(weekStart, dayOffset);
+      const dateKey = format(date, "yyyy-MM-dd");
+      return Array.from({ length: 24 }, () =>
+        tasks.filter((t) => {
+          if (!t.dueDate) return false;
+          return format(new Date(t.dueDate), "yyyy-MM-dd") === dateKey;
+        }).length
+      );
+    });
+
+    return { totalTasks: tt, completedCount: cc, completionRate: cr, weeklyData: wd, categoryData: cd, monthlyTrend: mt, heatmapData: hm };
+  }, [tasks]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <div className="flex flex-col items-center gap-3">
+          <LoaderCircle className="w-8 h-8 animate-spin text-indigo-500" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">Yuklanmoqda...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -65,7 +133,22 @@ export default function AnalyticsPage() {
           <h1 className="text-2xl font-bold text-text dark:text-text-dark">Analitika</h1>
           <p className="text-muted text-sm mt-1">Vazifalar statistikasi va tahlillar</p>
         </div>
-        <button className="btn-secondary btn-md">
+        <button className="btn-secondary btn-md" onClick={() => {
+          const csv = [
+            ["Ko'rsatkich", "Qiymat"],
+            ["Jami vazifalar", totalTasks],
+            ["Bajarilgan", completedCount],
+            ["Bajarilish darajasi", `${completionRate}%`],
+            ["Haftalik", ...weeklyData.map(d => `${d.day}: ${d.completed}/${d.total}`)],
+          ].map((r) => r.join(",")).join("\n");
+          const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `reja-hisobot-${new Date().toISOString().slice(0, 10)}.csv`;
+          a.click();
+          URL.revokeObjectURL(url);
+        }}>
           <Download className="w-4 h-4" />
           Hisobot
         </button>
@@ -73,10 +156,10 @@ export default function AnalyticsPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { title: "O'rtacha bajarilish", value: "78%", icon: TrendingUp, color: "bg-success", trend: "+5%" },
-          { title: "Jami vazifalar", value: "353", icon: BarChart3, color: "bg-primary", trend: "+12%" },
+          { title: "O'rtacha bajarilish", value: `${completionRate}%`, icon: TrendingUp, color: "bg-success", trend: "+5%" },
+          { title: "Jami vazifalar", value: `${totalTasks}`, icon: BarChart3, color: "bg-primary", trend: "+12%" },
           { title: "Eng yaxshi kun", value: "Payshanba", icon: Calendar, color: "bg-secondary" },
-          { title: "Streak", value: "12 kun", icon: Flame, color: "bg-orange-500", trend: "+3" },
+          { title: "Streak", value: `${streak?.currentStreak ?? 0} kun`, icon: Flame, color: "bg-orange-500", trend: "+3" },
         ].map((stat, i) => (
           <motion.div
             key={stat.title}
@@ -124,11 +207,11 @@ export default function AnalyticsPage() {
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={weeklyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                <XAxis dataKey="day" stroke="#64748B" fontSize={12} />
-                <YAxis stroke="#64748B" fontSize={12} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartStroke} />
+                <XAxis dataKey="day" stroke={chartText} fontSize={12} />
+                <YAxis stroke={chartText} fontSize={12} />
                 <Tooltip />
-                <Bar dataKey="total" fill="#E2E8F0" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="total" fill={chartStroke} radius={[4, 4, 0, 0]} />
                 <Bar dataKey="completed" fill="#6366F1" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -151,9 +234,9 @@ export default function AnalyticsPage() {
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={monthlyTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                <XAxis dataKey="month" stroke="#64748B" fontSize={12} />
-                <YAxis stroke="#64748B" fontSize={12} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartStroke} />
+                <XAxis dataKey="month" stroke={chartText} fontSize={12} />
+                <YAxis stroke={chartText} fontSize={12} />
                 <Tooltip />
                 <Area
                   type="monotone"
@@ -206,7 +289,7 @@ export default function AnalyticsPage() {
               <div key={cat.name} className="flex items-center gap-1.5">
                 <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
                 <span className="text-xs text-muted">{cat.name}</span>
-                <span className="text-xs font-medium">{cat.value}%</span>
+                <span className="text-xs font-medium">{cat.value} ta</span>
               </div>
             ))}
           </div>

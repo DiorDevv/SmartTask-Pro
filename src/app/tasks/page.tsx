@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { Suspense, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Search,
@@ -10,10 +11,14 @@ import {
   ChevronDown,
   Plus,
   FolderKanban,
+  SearchX,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { TaskCard } from "@/components/tasks/task-card";
 import { TaskModal } from "@/components/tasks/task-modal";
 import { Task, TaskStatus } from "@/types";
+import { useTasks, useUpdateTaskStatus, useDeleteTask } from "@/hooks/use-tasks";
 
 const statusFilters = [
   { value: "ALL", label: "Barcha holatlar" },
@@ -25,43 +30,40 @@ const statusFilters = [
   { value: "CANCELLED", label: "Bekor qilindi", color: "bg-gray-500" },
 ];
 
-export default function TasksPage() {
-  const [tasks, setTasks] = useState<Task[]>([]);
+const ITEMS_PER_PAGE = 10;
+
+function TasksContent() {
+  const searchParams = useSearchParams();
   const [showNewTask, setShowNewTask] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [filterStatus, setFilterStatus] = useState("ALL");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
+  const [page, setPage] = useState(1);
 
-  const fetchTasks = useCallback(async () => {
-    try {
-      const res = await fetch("/api/tasks");
-      if (res.ok) setTasks(await res.json());
-    } catch {}
-  }, []);
+  useEffect(() => {
+    const q = searchParams.get("search");
+    if (q) setSearchQuery(q);
+  }, [searchParams]);
 
-  useEffect(() => { fetchTasks(); }, [fetchTasks]);
+  useEffect(() => { setPage(1); }, [filterStatus, searchQuery]);
+  const { data: tasks = [] } = useTasks();
+  const updateStatus = useUpdateTaskStatus();
+  const deleteTask = useDeleteTask();
 
-  const handleStatusChange = async (id: string, status: TaskStatus) => {
-    try {
-      await fetch(`/api/tasks/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
-    } catch {}
+  const handleStatusChange = (id: string, status: TaskStatus) => {
+    updateStatus.mutate({ id, status });
   };
-  const handleDelete = async (id: string) => {
-    try {
-      await fetch(`/api/tasks/${id}`, { method: "DELETE" });
-      setTasks((prev) => prev.filter((t) => t.id !== id));
-    } catch {}
+  const handleDelete = (id: string) => {
+    deleteTask.mutate(id);
   };
 
   const filteredTasks = tasks
     .filter((t) => filterStatus === "ALL" || t.status === filterStatus)
-    .filter((t) => t.title.toLowerCase().includes(searchQuery.toLowerCase()));
+    .filter((t) => (t.title || "").toLowerCase().includes(searchQuery.toLowerCase()));
+
+  const totalPages = Math.max(1, Math.ceil(filteredTasks.length / ITEMS_PER_PAGE));
+  const paginatedTasks = filteredTasks.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
   return (
     <div className="space-y-6">
@@ -129,6 +131,7 @@ export default function TasksPage() {
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
+          onClick={() => setFilterStatus(filterStatus === "ALL" ? "PENDING" : "ALL")}
           className="flex items-center gap-2 h-10 px-4 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
         >
           <SlidersHorizontal className="w-4 h-4" />
@@ -136,7 +139,7 @@ export default function TasksPage() {
         </motion.button>
       </div>
 
-      {filteredTasks.length === 0 && tasks.length === 0 ? (
+      {tasks.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -157,6 +160,18 @@ export default function TasksPage() {
             Birinchi vazifani qo'shish
           </motion.button>
         </motion.div>
+      ) : filteredTasks.length === 0 ? (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col items-center justify-center py-24"
+        >
+          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 flex items-center justify-center mb-5 shadow-lg">
+            <SearchX className="w-10 h-10 text-gray-400" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-50 mb-1">Hech narsa topilmadi</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Boshqa qidiruv so'zi yoki filtrni tanlang</p>
+        </motion.div>
       ) : (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -167,7 +182,7 @@ export default function TasksPage() {
               : "space-y-3"
           }
         >
-          {filteredTasks.map((task, i) => (
+          {paginatedTasks.map((task, i) => (
             <motion.div
               key={task.id}
               initial={{ opacity: 0, y: 12 }}
@@ -185,8 +200,59 @@ export default function TasksPage() {
         </motion.div>
       )}
 
-      {showNewTask && <TaskModal onClose={() => setShowNewTask(false)} onSuccess={fetchTasks} />}
-      {editingTask && <TaskModal task={editingTask} onClose={() => setEditingTask(null)} onSuccess={fetchTasks} />}
+      {filteredTasks.length > ITEMS_PER_PAGE && (
+        <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-800">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {(page - 1) * ITEMS_PER_PAGE + 1}-{Math.min(page * ITEMS_PER_PAGE, filteredTasks.length)} / {filteredTasks.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Oldingi
+            </motion.button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`w-9 h-9 rounded-xl text-sm font-medium transition-all ${
+                    p === page
+                      ? "bg-indigo-500 text-white shadow-sm"
+                      : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Keyingi
+              <ChevronRight className="w-4 h-4" />
+            </motion.button>
+          </div>
+        </div>
+      )}
+
+      {showNewTask && <TaskModal onClose={() => setShowNewTask(false)} />}
+      {editingTask && <TaskModal task={editingTask} onClose={() => setEditingTask(null)} />}
     </div>
+  );
+}
+
+export default function TasksPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-muted">Yuklanmoqda...</div>}>
+      <TasksContent />
+    </Suspense>
   );
 }

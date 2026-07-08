@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   User,
@@ -15,8 +15,12 @@ import {
   Sun,
   Monitor,
   Languages,
+  LoaderCircle,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { useThemeStore } from "@/store/theme-store";
+import { useUser, useUpdateUser } from "@/hooks/use-settings";
 
 const settingsSections = [
   { id: "profile", label: "Profil", icon: User },
@@ -31,6 +35,39 @@ const settingsSections = [
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState("profile");
   const { theme, setTheme } = useThemeStore();
+  const { data: user, isLoading } = useUser();
+  const updateUser = useUpdateUser();
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [timezone, setTimezone] = useState("Asia/Tashkent");
+  const [lang, setLang] = useState("uz");
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name || "");
+      setEmail(user.email || "");
+      setTimezone(user.timezone || "Asia/Tashkent");
+      setLang(user.language || "uz");
+    }
+  }, [user]);
+
+  const handleSaveProfile = async () => {
+    await updateUser.mutateAsync({ name, timezone } as any);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleThemeChange = async (newTheme: string) => {
+    setTheme(newTheme as any);
+    await updateUser.mutateAsync({ theme: newTheme } as any);
+  };
+
+  const handleLanguageChange = async (newLang: string) => {
+    setLang(newLang);
+    await updateUser.mutateAsync({ language: newLang } as any);
+  };
 
   return (
     <div className="space-y-6">
@@ -75,42 +112,68 @@ export default function SettingsPage() {
             >
               <h3 className="text-lg font-semibold text-text dark:text-text-dark">Profil sozlamalari</h3>
 
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white text-xl font-bold">
-                  U
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <LoaderCircle className="w-6 h-6 animate-spin text-muted" />
                 </div>
-                <div>
-                  <button className="btn-secondary btn-sm">Rasmni o'zgartirish</button>
-                  <p className="text-xs text-muted mt-1">PNG, JPG. 1MB gacha</p>
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-4">
+                    {user?.avatar ? (
+                      <img src={user.avatar} alt="Avatar" className="w-16 h-16 rounded-full object-cover ring-2 ring-primary/20" />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white text-xl font-bold">
+                        {(user?.name || "U")[0].toUpperCase()}
+                      </div>
+                    )}
+                    <div>
+                      <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" id="avatar-upload" className="hidden" onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > 1_048_576) { alert("Rasm hajmi 1MB dan oshmasligi kerak"); return; }
+                        const formData = new FormData();
+                        formData.append("avatar", file);
+                        const res = await fetch("/api/user/avatar", { method: "POST", body: formData });
+                        if (res.ok) { window.location.reload(); }
+                        else { const d = await res.json(); alert(d.error || "Xatolik"); }
+                      }} />
+                      <button className="btn-secondary btn-sm" onClick={() => document.getElementById("avatar-upload")?.click()}>Rasmni o'zgartirish</button>
+                      <p className="text-xs text-muted mt-1">PNG, JPG, WEBP. 1MB gacha</p>
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-muted mb-1.5">Ism</label>
-                  <input type="text" className="input" placeholder="Ismingiz" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-muted mb-1.5">Familiya</label>
-                  <input type="text" className="input" placeholder="Familiyangiz" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-muted mb-1.5">Email</label>
-                  <input type="email" className="input" placeholder="email@example.com" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-muted mb-1.5">Vaqt mintaqasi</label>
-                  <select className="input">
-                    <option>Asia/Tashkent</option>
-                    <option>Asia/Almaty</option>
-                    <option>Europe/Moscow</option>
-                  </select>
-                </div>
-              </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-muted mb-1.5">Ism</label>
+                      <input type="text" className="input" placeholder="Ismingiz" value={name} onChange={(e) => setName(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-muted mb-1.5">Email</label>
+                      <input type="email" className="input" placeholder="email@example.com" value={email} disabled readOnly />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-muted mb-1.5">Vaqt mintaqasi</label>
+                      <select className="input" value={timezone} onChange={(e) => setTimezone(e.target.value)}>
+                        <option>Asia/Tashkent</option>
+                        <option>Asia/Almaty</option>
+                        <option>Europe/Moscow</option>
+                      </select>
+                    </div>
+                  </div>
 
-              <div className="flex justify-end">
-                <button className="btn-primary btn-md">Saqlash</button>
-              </div>
+                  <div className="flex items-center justify-end gap-3">
+                    {saved && (
+                      <span className="flex items-center gap-1.5 text-sm text-success">
+                        <CheckCircle2 className="w-4 h-4" />
+                        Saqlandi
+                      </span>
+                    )}
+                    <button className="btn-primary btn-md" onClick={handleSaveProfile} disabled={updateUser.isPending}>
+                      {updateUser.isPending ? "Saqlanmoqda..." : "Saqlash"}
+                    </button>
+                  </div>
+                </>
+              )}
             </motion.div>
           )}
 
@@ -132,7 +195,7 @@ export default function SettingsPage() {
                   ].map(({ value, label, icon: Icon }) => (
                     <button
                       key={value}
-                      onClick={() => setTheme(value as any)}
+                      onClick={() => handleThemeChange(value)}
                       className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
                         theme === value
                           ? "border-primary bg-primary/5"
@@ -144,19 +207,6 @@ export default function SettingsPage() {
                         {label}
                       </span>
                     </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-muted mb-3">Rang mavzusi</label>
-                <div className="flex gap-3">
-                  {["#6366F1", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444", "#EC4899"].map((color) => (
-                    <button
-                      key={color}
-                      className="w-8 h-8 rounded-full ring-2 ring-offset-2 ring-transparent hover:ring-primary transition-all"
-                      style={{ backgroundColor: color }}
-                    />
                   ))}
                 </div>
               </div>
@@ -205,18 +255,10 @@ export default function SettingsPage() {
                     <Languages className="w-4 h-4 inline mr-1" />
                     Til
                   </label>
-                  <select className="input">
+                  <select className="input" value={lang} onChange={(e) => handleLanguageChange(e.target.value)}>
                     <option value="uz">O'zbekcha</option>
                     <option value="en">English</option>
                     <option value="ru">Русский</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-muted mb-1.5">Sana formati</label>
-                  <select className="input">
-                    <option>DD.MM.YYYY</option>
-                    <option>MM.DD.YYYY</option>
-                    <option>YYYY-MM-DD</option>
                   </select>
                 </div>
               </div>
@@ -243,7 +285,7 @@ export default function SettingsPage() {
               </div>
 
               <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
-                <button className="btn-danger btn-sm">Hisobni o'chirish</button>
+                <button className="btn-danger btn-sm" onClick={async () => { if (confirm("Hisobingizni o'chirishni xohlaysizmi? Bu amalni qaytarib bo'lmaydi.")) { await fetch("/api/user", { method: "DELETE" }); window.location.href = "/auth/login"; } }}>Hisobni o'chirish</button>
               </div>
             </motion.div>
           )}

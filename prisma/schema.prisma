@@ -36,6 +36,7 @@ model User {
   updatedAt DateTime @updatedAt
   tasks     Task[]
   categories Category[]
+  tags      Tag[]
   streaks   Streak[]
   accounts  Account[]
   sessions  Session[]
@@ -88,7 +89,7 @@ model Task {
   categoryId  String?
   category    Category? @relation(fields: [categoryId], references: [id])
   userId      String
-  user        User      @relation(fields: [userId], references: [id])
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   subtasks    SubTask[]
   attachments Attachment[]
   reminders   Reminder[]
@@ -105,8 +106,10 @@ model Category {
   color  String @default("#6366F1")
   icon   String?
   userId String
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   tasks  Task[]
+
+  @@unique([name, userId])
 }
 
 model SubTask {
@@ -122,7 +125,10 @@ model Tag {
   name   String
   color  String?
   userId String
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   tasks  Task[]
+
+  @@unique([name, userId])
 }
 
 model Reminder {
@@ -135,19 +141,20 @@ model Reminder {
 }
 
 model Attachment {
-  id       String @id @default(cuid())
-  name     String
-  url      String
-  type     String
-  size     Int
-  taskId   String
-  task     Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  type      String
+  size      Int
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 }
 
 model Streak {
   id            String    @id @default(cuid())
-  userId        String
-  user          User      @relation(fields: [userId], references: [id])
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   currentStreak Int       @default(0)
   longestStreak Int       @default(0)
   lastActive    DateTime?

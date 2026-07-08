@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   X,
   Calendar,
@@ -11,8 +12,11 @@ import {
   ListPlus,
   AlignLeft,
   Type,
-  Loader2,
+  LoaderCircle,
   AlertCircle,
+  CheckCircle2,
+  Circle,
+  Trash2,
 } from "lucide-react";
 import { TaskPriority } from "@/types";
 
@@ -20,12 +24,15 @@ interface TaskModalProps {
   onClose: () => void;
   onSuccess?: () => void;
   task?: {
+    id: string;
     title?: string | null;
     description?: string | null;
     priority?: TaskPriority | null;
     dueDate?: string | Date | null;
     dueTime?: string | Date | null;
-    category?: string | { name: string } | null;
+    category?: string | { name: string; id?: string } | null;
+    isRecurring?: boolean | null;
+    recurrence?: string | null;
   };
 }
 
@@ -44,14 +51,21 @@ function toTimeStr(date: string | Date | null | undefined): string {
 }
 
 export function TaskModal({ onClose, onSuccess, task }: TaskModalProps) {
+  const queryClient = useQueryClient();
   const [title, setTitle] = useState(task?.title || "");
   const [description, setDescription] = useState(task?.description || "");
   const [priority, setPriority] = useState<TaskPriority>(task?.priority || TaskPriority.MEDIUM);
   const [dueDate, setDueDate] = useState(toDateStr(task?.dueDate));
   const [dueTime, setDueTime] = useState(toTimeStr(task?.dueTime));
-  const [category, setCategory] = useState(
-    typeof task?.category === "string" ? task.category : (task?.category as { name?: string } | null)?.name || "ish"
-  );
+  const [category, setCategory] = useState(() => {
+    if (!task?.category) return "ish";
+    if (typeof task.category === "string") return task.category;
+    return (task.category as { name?: string })?.name || "ish";
+  });
+  const [isRecurring, setIsRecurring] = useState(task?.isRecurring || false);
+  const [recurrence, setRecurrence] = useState(task?.recurrence || "daily");
+  const [subtasks, setSubtasks] = useState<{ title: string; completed: boolean }[]>([]);
+  const [subtaskInput, setSubtaskInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -60,9 +74,10 @@ export function TaskModal({ onClose, onSuccess, task }: TaskModalProps) {
     if (!title.trim()) return;
     setLoading(true);
     setError("");
+    const isEditing = !!task?.id;
     try {
-      const res = await fetch("/api/tasks", {
-        method: "POST",
+      const res = await fetch(isEditing ? `/api/tasks/${task.id}` : "/api/tasks", {
+        method: isEditing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim(),
@@ -71,12 +86,23 @@ export function TaskModal({ onClose, onSuccess, task }: TaskModalProps) {
           dueDate: dueDate || null,
           dueTime: dueTime || null,
           category: category || null,
+          isRecurring,
+          recurrence: isRecurring ? recurrence : null,
         }),
       });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || "Xatolik yuz berdi");
       }
+      const savedTask = await res.json();
+      for (const st of subtasks) {
+        await fetch(`/api/tasks/${savedTask.id}/subtasks`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: st.title }),
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
       onSuccess?.();
       onClose();
     } catch (err) {
@@ -113,7 +139,7 @@ export function TaskModal({ onClose, onSuccess, task }: TaskModalProps) {
               onClick={onClose}
               className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-all"
             >
-              <X className="w-4.5 h-4.5" />
+              <X className="w-5 h-5" />
             </motion.button>
           </div>
 
@@ -213,15 +239,72 @@ export function TaskModal({ onClose, onSuccess, task }: TaskModalProps) {
               </div>
             </div>
 
-            <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
-              type="button"
-              className="flex items-center gap-2 w-full px-4 py-3 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-500 dark:text-gray-400 hover:border-indigo-400 hover:text-indigo-500 dark:hover:border-indigo-500 dark:hover:text-indigo-400 transition-all"
-            >
-              <ListPlus className="w-4 h-4" />
-              Sub-vazifa qo'shish
-            </motion.button>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input type="checkbox" checked={isRecurring} onChange={(e) => setIsRecurring(e.target.checked)} className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-indigo-500 focus:ring-indigo-500/20" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Takrorlanuvchi</span>
+              </label>
+              {isRecurring && (
+                <select value={recurrence} onChange={(e) => setRecurrence(e.target.value)} className="px-3 py-1.5 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
+                  <option value="daily">Har kuni</option>
+                  <option value="weekly">Har hafta</option>
+                  <option value="monthly">Har oy</option>
+                </select>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Sub-vazifa nomi..."
+                  value={subtaskInput}
+                  onChange={(e) => setSubtaskInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && subtaskInput.trim()) {
+                      e.preventDefault();
+                      setSubtasks((prev) => [...prev, { title: subtaskInput.trim(), completed: false }]);
+                      setSubtaskInput("");
+                    }
+                  }}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                />
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  type="button"
+                  onClick={() => {
+                    if (subtaskInput.trim()) {
+                      setSubtasks((prev) => [...prev, { title: subtaskInput.trim(), completed: false }]);
+                      setSubtaskInput("");
+                    }
+                  }}
+                  className="p-2.5 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 transition-all"
+                >
+                  <ListPlus className="w-4 h-4" />
+                </motion.button>
+              </div>
+              {subtasks.length > 0 && (
+                <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                  {subtasks.map((st, idx) => (
+                    <div key={idx} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/30 group">
+                      {st.completed ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                      ) : (
+                        <Circle className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 flex-shrink-0" />
+                      )}
+                      <span className="flex-1 text-sm text-gray-700 dark:text-gray-300">{st.title}</span>
+                      <button
+                        type="button"
+                        onClick={() => setSubtasks((prev) => prev.filter((_, i) => i !== idx))}
+                        className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-all"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {error && (
               <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
@@ -249,7 +332,7 @@ export function TaskModal({ onClose, onSuccess, task }: TaskModalProps) {
                 className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 text-white text-sm font-semibold shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all disabled:opacity-50"
               >
                 {loading ? (
-                  <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />Yuklanmoqda...</span>
+                  <span className="flex items-center gap-2"><LoaderCircle className="w-4 h-4 animate-spin" />Yuklanmoqda...</span>
                 ) : (
                   task ? "Saqlash" : "Qo'shish"
                 )}

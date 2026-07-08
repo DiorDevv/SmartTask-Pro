@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
-
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 export async function GET() {
   try {
     const session = await auth();
-    const userId = session?.user?.id || (await db.user.findFirst())?.id;
-    if (!userId) return NextResponse.json({ error: "Foydalanuvchi topilmadi" }, { status: 401 });
+    if (!session?.user?.id) return NextResponse.json({ error: "Avtorizatsiyadan o'tilmagan" }, { status: 401 });
+    const userId = session.user.id;
 
     const tasks = await db.task.findMany({
       where: { userId, archivedAt: null },
@@ -22,10 +22,15 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const ip = req.headers.get("x-forwarded-for") || "unknown";
+  if (!rateLimit(`tasks-create:${ip}`, 20, 60_000).success) {
+    return rateLimitResponse();
+  }
+
   try {
     const session = await auth();
-    const userId = session?.user?.id || (await db.user.findFirst())?.id;
-    if (!userId) return NextResponse.json({ error: "Foydalanuvchi topilmadi" }, { status: 401 });
+    if (!session?.user?.id) return NextResponse.json({ error: "Avtorizatsiyadan o'tilmagan" }, { status: 401 });
+    const userId = session.user.id;
 
     const { title, description, priority, dueDate: dDate, dueTime: dTime, category, isRecurring, recurrence } = await req.json();
 

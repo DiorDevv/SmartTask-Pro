@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useMemo } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   Plus,
@@ -12,6 +13,7 @@ import {
   Target,
   Layers,
   Sparkles,
+  LoaderCircle,
 } from "lucide-react";
 import { StatsCard } from "@/components/dashboard/stats-card";
 import { ProgressBar } from "@/components/dashboard/progress-bar";
@@ -19,49 +21,35 @@ import { TaskCard } from "@/components/tasks/task-card";
 import { TaskModal } from "@/components/tasks/task-modal";
 import { Task, TaskStatus } from "@/types";
 import { formatDateFull } from "@/lib/utils";
+import { useTasks, useUpdateTaskStatus, useDeleteTask } from "@/hooks/use-tasks";
+import { useStreak } from "@/hooks/use-streak";
 
 export default function DashboardPage() {
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [showNewTask, setShowNewTask] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-
-  const fetchTasks = useCallback(async () => {
-    try {
-      const res = await fetch("/api/tasks");
-      if (res.ok) {
-        const data = await res.json();
-        setTasks(data);
-      }
-    } catch {}
-  }, []);
-
-  useEffect(() => { fetchTasks(); }, [fetchTasks]);
+  const { data: tasks = [], isLoading } = useTasks();
+  const { data: streak } = useStreak();
+  const updateStatus = useUpdateTaskStatus();
+  const deleteTask = useDeleteTask();
 
   const today = new Date();
   const dateStr = formatDateFull(today);
 
-  const completedCount = tasks.filter((t) => t.status === TaskStatus.COMPLETED).length;
-  const inProgressCount = tasks.filter((t) => t.status === TaskStatus.IN_PROGRESS).length;
-  const pendingCount = tasks.filter((t) => t.status === TaskStatus.PENDING).length;
-  const failedCount = tasks.filter((t) => t.status === TaskStatus.FAILED).length;
-  const totalActive = tasks.filter((t) => t.status !== TaskStatus.CANCELLED).length;
-  const progress = totalActive > 0 ? Math.round((completedCount / totalActive) * 100) : 0;
+  const { completedCount, inProgressCount, pendingCount, failedCount, totalActive, progress } = useMemo(() => {
+    const cc = tasks.filter((t) => t.status === TaskStatus.COMPLETED).length;
+    const ip = tasks.filter((t) => t.status === TaskStatus.IN_PROGRESS).length;
+    const pc = tasks.filter((t) => t.status === TaskStatus.PENDING).length;
+    const fc = tasks.filter((t) => t.status === TaskStatus.FAILED).length;
+    const ta = tasks.filter((t) => t.status !== TaskStatus.CANCELLED).length;
+    const pr = ta > 0 ? Math.round((cc / ta) * 100) : 0;
+    return { completedCount: cc, inProgressCount: ip, pendingCount: pc, failedCount: fc, totalActive: ta, progress: pr };
+  }, [tasks]);
 
-  const handleStatusChange = async (id: string, status: TaskStatus) => {
-    try {
-      await fetch(`/api/tasks/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
-    } catch {}
+  const handleStatusChange = (id: string, status: TaskStatus) => {
+    updateStatus.mutate({ id, status });
   };
-  const handleDelete = async (id: string) => {
-    try {
-      await fetch(`/api/tasks/${id}`, { method: "DELETE" });
-      setTasks((prev) => prev.filter((t) => t.id !== id));
-    } catch {}
+  const handleDelete = (id: string) => {
+    deleteTask.mutate(id);
   };
 
   const greeting = () => {
@@ -70,6 +58,17 @@ export default function DashboardPage() {
     if (h < 18) return "Xayrli kun";
     return "Xayrli kech";
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <div className="flex flex-col items-center gap-3">
+          <LoaderCircle className="w-8 h-8 animate-spin text-indigo-500" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">Yuklanmoqda...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -129,8 +128,11 @@ export default function DashboardPage() {
               .filter((t) => t.status !== TaskStatus.CANCELLED)
               .sort((a, b) => {
                 const order = [TaskStatus.IN_PROGRESS, TaskStatus.PENDING, TaskStatus.POSTPONED, TaskStatus.COMPLETED, TaskStatus.FAILED];
-                return order.indexOf(a.status) - order.indexOf(b.status);
+                const ai = order.indexOf(a.status);
+                const bi = order.indexOf(b.status);
+                return (ai !== -1 ? ai : 99) - (bi !== -1 ? bi : 99);
               })
+              .slice(0, 5)
               .map((task, i) => (
                 <motion.div
                   key={task.id}
@@ -146,6 +148,14 @@ export default function DashboardPage() {
                   />
                 </motion.div>
               ))}
+            {tasks.filter((t) => t.status !== TaskStatus.CANCELLED).length > 5 && (
+              <Link
+                href="/tasks"
+                className="flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all"
+              >
+                Barcha vazifalarni ko'rish ({tasks.filter((t) => t.status !== TaskStatus.CANCELLED).length} ta)
+              </Link>
+            )}
           </div>
         </motion.div>
 
@@ -183,7 +193,7 @@ export default function DashboardPage() {
               <h3 className="font-bold text-gray-900 dark:text-gray-50">Streak</h3>
             </div>
             <div className="text-center py-2">
-              <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-rose-600">12</p>
+              <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-rose-600">{streak?.currentStreak ?? 0}</p>
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1">ketma-ket kun</p>
             </div>
             <div className="flex items-center justify-center gap-1.5 mt-4">
@@ -211,26 +221,32 @@ export default function DashboardPage() {
               <h3 className="font-bold text-gray-900 dark:text-gray-50">Kategoriyalar</h3>
             </div>
             <div className="space-y-3">
-              {[
-                { name: "Ish", color: "bg-indigo-500", count: 3 },
-                { name: "Shaxsiy", color: "bg-violet-500", count: 1 },
-                { name: "Sport", color: "bg-emerald-500", count: 1 },
-              ].map((cat) => (
-                <div key={cat.name} className="flex items-center justify-between py-1.5">
-                  <div className="flex items-center gap-2.5">
-                    <div className={`w-3 h-3 rounded-full ${cat.color}`} />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cat.name}</span>
+              {(() => {
+                const catMap = new Map<string, { name: string; color: string; count: number }>();
+                tasks.forEach((t) => {
+                  if (t.category) {
+                    const existing = catMap.get(t.category.name) || { name: t.category.name, color: t.category.color, count: 0 };
+                    existing.count++;
+                    catMap.set(t.category.name, existing);
+                  }
+                });
+                return Array.from(catMap.values()).length > 0 ? Array.from(catMap.values()).map((cat) => (
+                  <div key={cat.name} className="flex items-center justify-between py-1.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }} />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cat.name}</span>
+                    </div>
+                    <span className="text-sm font-bold text-gray-900 dark:text-gray-50">{cat.count}</span>
                   </div>
-                  <span className="text-sm font-bold text-gray-900 dark:text-gray-50">{cat.count}</span>
-                </div>
-              ))}
+                )) : <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Kategoriyalar mavjud emas</p>;
+              })()}
             </div>
           </div>
         </motion.div>
       </div>
 
-      {showNewTask && <TaskModal onClose={() => setShowNewTask(false)} onSuccess={fetchTasks} />}
-      {editingTask && <TaskModal task={editingTask} onClose={() => setEditingTask(null)} onSuccess={fetchTasks} />}
+      {showNewTask && <TaskModal onClose={() => setShowNewTask(false)} />}
+      {editingTask && <TaskModal task={editingTask} onClose={() => setEditingTask(null)} />}
     </div>
   );
 }

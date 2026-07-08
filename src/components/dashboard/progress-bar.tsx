@@ -11,7 +11,7 @@ interface ProgressBarProps {
 
 export function ProgressBar({ value, label, size = "md", showLabel = true }: ProgressBarProps) {
   const heights = { sm: "h-1.5", md: "h-2.5", lg: "h-3.5" };
-  const clampedValue = Math.min(100, Math.max(0, value));
+  const clampedValue = Math.min(100, Math.max(0, isNaN(value) ? 0 : value));
 
   const gradient =
     clampedValue >= 80
