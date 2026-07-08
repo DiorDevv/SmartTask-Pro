@@ -5,6 +5,7 @@ import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { db } from "./db";
+import { rateLimit } from "./rate-limit";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(db),
@@ -16,8 +17,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         if (!credentials?.email || !credentials?.password) return null;
+
+        const ip = request?.headers?.get("x-forwarded-for")?.split(",")[0]?.trim()
+          || request?.headers?.get("x-real-ip")
+          || "unknown";
+        const rlKey = `login:${ip}`;
+        if (!rateLimit(rlKey, 5, 60_000).success) return null;
+
         const user = await db.user.findUnique({
           where: { email: credentials.email as string },
         });
