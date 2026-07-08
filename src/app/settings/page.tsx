@@ -308,16 +308,33 @@ export default function SettingsPage() {
               <h3 className="text-lg font-semibold text-text dark:text-text-dark">Ma'lumotlar boshqaruvi</h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <button className="btn-secondary btn-md">
+                <button className="btn-secondary btn-md" onClick={async () => {
+                  try {
+                    const res = await fetch("/api/tasks?take=10000");
+                    const data = await res.json();
+                    const tasks = Array.isArray(data) ? data : data.tasks;
+                    const csv = [["Sarlavha", "Status", "Priority", "Muddat", "Kategoriya"]].concat(
+                      tasks.map((t: any) => [t.title, t.status, t.priority, t.dueDate || "", t.category?.name || ""])
+                    ).map((r) => r.join(",")).join("\n");
+                    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `reja-vazifalar-${new Date().toISOString().slice(0, 10)}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    toast.success("Ma'lumotlar eksport qilindi");
+                  } catch { toast.error("Xatolik yuz berdi"); }
+                }}>
                   <Database className="w-4 h-4" />
                   Ma'lumotlarni eksport qilish
                 </button>
-                <button className="btn-secondary btn-md">
+                <button className="btn-secondary btn-md" disabled>
                   <Database className="w-4 h-4" />
                   Ma'lumotlarni import qilish
                 </button>
-                <button className="btn-secondary btn-md">Arxivni tozalash</button>
-                <button className="btn-secondary btn-md">Barcha ma'lumotlarni yuklab olish</button>
+                <button className="btn-secondary btn-md" disabled>Arxivni tozalash</button>
+                <button className="btn-secondary btn-md" disabled>Barcha ma'lumotlarni yuklab olish</button>
               </div>
             </motion.div>
           )}

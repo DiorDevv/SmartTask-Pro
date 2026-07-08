@@ -27,7 +27,7 @@ import { useStreak } from "@/hooks/use-streak";
 export default function DashboardPage() {
   const [showNewTask, setShowNewTask] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const { data: tasks = [], isLoading } = useTasks();
+  const { data: tasks = [], isLoading, isError, error } = useTasks();
   const { data: streak } = useStreak();
   const updateStatus = useUpdateTaskStatus();
   const deleteTask = useDeleteTask();
@@ -68,6 +68,9 @@ export default function DashboardPage() {
         </div>
       </div>
     );
+  }
+  if (isError) {
+    return <div className="text-center py-32 text-danger">{error instanceof Error ? error.message : "Xatolik yuz berdi"}</div>;
   }
 
   return (

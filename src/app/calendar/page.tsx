@@ -8,6 +8,7 @@ import {
   Plus,
   Calendar as CalendarIcon,
   ListTodo,
+  LoaderCircle,
 } from "lucide-react";
 import {
   format,
@@ -40,7 +41,9 @@ export default function CalendarPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showNewTask, setShowNewTask] = useState(false);
-  const { data: tasks = [] } = useTasks();
+  const { data: tasks = [], isLoading, isError, error } = useTasks();
+  if (isLoading) return <div className="flex items-center justify-center py-32"><LoaderCircle className="w-8 h-8 animate-spin text-indigo-500" /></div>;
+  if (isError) return <div className="text-center py-32 text-danger">{error instanceof Error ? error.message : "Xatolik yuz berdi"}</div>;
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(monthStart);

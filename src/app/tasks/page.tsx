@@ -14,6 +14,7 @@ import {
   SearchX,
   ChevronLeft,
   ChevronRight,
+  LoaderCircle,
 } from "lucide-react";
 import { TaskCard } from "@/components/tasks/task-card";
 import { TaskModal } from "@/components/tasks/task-modal";
@@ -47,7 +48,7 @@ function TasksContent() {
   }, [searchParams]);
 
   useEffect(() => { setPage(1); }, [filterStatus, searchQuery]);
-  const { data: tasks = [] } = useTasks();
+  const { data: tasks = [], isLoading, isError, error } = useTasks();
   const updateStatus = useUpdateTaskStatus();
   const deleteTask = useDeleteTask();
 
@@ -64,6 +65,9 @@ function TasksContent() {
 
   const totalPages = Math.max(1, Math.ceil(filteredTasks.length / ITEMS_PER_PAGE));
   const paginatedTasks = filteredTasks.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
+  if (isLoading) return <div className="flex items-center justify-center py-32"><LoaderCircle className="w-8 h-8 animate-spin text-indigo-500" /></div>;
+  if (isError) return <div className="text-center py-32 text-danger">{error instanceof Error ? error.message : "Xatolik yuz berdi"}</div>;
 
   return (
     <div className="space-y-6">

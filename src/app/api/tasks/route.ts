@@ -3,19 +3,28 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { createTaskSchema } from "@/lib/schemas";
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ error: "Avtorizatsiyadan o'tilmagan" }, { status: 401 });
     const userId = session.user.id;
 
-    const tasks = await db.task.findMany({
-      where: { userId, archivedAt: null },
-      include: { category: true, subtasks: true, tags: true, reminders: true, attachments: true },
-      orderBy: { createdAt: "desc" },
-    });
+    const url = new URL(req.url);
+    const skip = Math.max(0, parseInt(url.searchParams.get("skip") || "0"));
+    const take = Math.min(100, Math.max(1, parseInt(url.searchParams.get("take") || "50")));
 
-    return NextResponse.json(tasks);
+    const [tasks, total] = await Promise.all([
+      db.task.findMany({
+        where: { userId, archivedAt: null },
+        include: { category: true, subtasks: true, tags: true, reminders: true, attachments: true },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take,
+      }),
+      db.task.count({ where: { userId, archivedAt: null } }),
+    ]);
+
+    return NextResponse.json({ tasks, total, skip, take });
   } catch (e) {
     console.error("GET /api/tasks error:", e);
     return NextResponse.json({ error: "Xatolik yuz berdi" }, { status: 500 });

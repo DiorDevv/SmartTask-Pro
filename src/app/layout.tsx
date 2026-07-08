@@ -32,6 +32,19 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="uz" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            (function() {
+              try {
+                var theme = localStorage.getItem("theme") || "system";
+                var isDark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+                if (isDark) document.documentElement.classList.add("dark");
+              } catch(e) {}
+            })();
+          `,
+        }} />
+      </head>
       <body className={inter.className}>
         <Providers>{children}</Providers>
       </body>
