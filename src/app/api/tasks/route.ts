@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { createTaskSchema } from "@/lib/schemas";
 export async function GET() {
   try {
     const session = await auth();
@@ -32,29 +33,23 @@ export async function POST(req: Request) {
     if (!session?.user?.id) return NextResponse.json({ error: "Avtorizatsiyadan o'tilmagan" }, { status: 401 });
     const userId = session.user.id;
 
-    const { title, description, priority, dueDate: dDate, dueTime: dTime, category, isRecurring, recurrence } = await req.json();
-
-    if (!title?.trim()) return NextResponse.json({ error: "Vazifa nomi talab qilinadi" }, { status: 400 });
-    if (title.trim().length > 200) return NextResponse.json({ error: "Sarlavha 200 belgidan oshmasligi kerak" }, { status: 400 });
-    if (description && description.length > 5000) return NextResponse.json({ error: "Tavsif 5000 belgidan oshmasligi kerak" }, { status: 400 });
-
-    const validPriorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
-    if (priority && !validPriorities.includes(priority)) {
-      return NextResponse.json({ error: "Noto'g'ri priority qiymati" }, { status: 400 });
+    const raw = await req.json();
+    const parsed = createTaskSchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || "Noto'g'ri ma'lumot" }, { status: 400 });
     }
-    if (recurrence && !["daily", "weekly", "monthly"].includes(recurrence)) {
-      return NextResponse.json({ error: "Noto'g'ri recurrence qiymati" }, { status: 400 });
-    }
+
+    const { title, description, priority, dueDate: dDate, dueTime: dTime, category, isRecurring, recurrence } = parsed.data;
 
     let dueDate: Date | null = null;
     if (dDate) {
-      dueDate = new Date(dDate);
+      dueDate = new Date(dDate as string);
       if (isNaN(dueDate.getTime())) dueDate = null;
     }
     let dueTime: Date | null = null;
     if (dTime && dDate) {
-      const combined = new Date(dDate);
-      const [h, m] = dTime.split(":").map(Number);
+      const combined = new Date(dDate as string);
+      const [h, m] = (dTime as string).split(":").map(Number);
       if (!isNaN(h) && !isNaN(m)) {
         combined.setHours(h, m, 0, 0);
         dueTime = combined;
@@ -78,10 +73,10 @@ export async function POST(req: Request) {
       data: {
         title: title.trim(),
         description: description?.trim() || null,
-        priority: priority || "MEDIUM",
+        priority,
         dueDate,
         dueTime,
-        isRecurring: isRecurring || false,
+        isRecurring,
         recurrence: recurrence || null,
         categoryId,
         userId,
@@ -92,7 +87,6 @@ export async function POST(req: Request) {
     return NextResponse.json(task, { status: 201 });
   } catch (e) {
     console.error("POST /api/tasks error:", e);
-    const message = e instanceof Error ? e.message : "Xatolik yuz berdi";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Xatolik yuz berdi" }, { status: 500 });
   }
 }

@@ -2,24 +2,24 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { registerSchema } from "@/lib/schemas";
 
 export async function POST(req: Request) {
-  const ip = req.headers.get("x-forwarded-for") || "unknown";
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || req.headers.get("x-real-ip")
+    || "unknown";
   if (!rateLimit(`register:${ip}`, 5, 60_000).success) {
     return rateLimitResponse();
   }
 
   try {
-    const { name, email, password } = await req.json();
-    if (!email || !password) {
-      return NextResponse.json({ error: "Email va parol talab qilinadi" }, { status: 400 });
+    const raw = await req.json();
+    const parsed = registerSchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || "Noto'g'ri ma'lumot" }, { status: 400 });
     }
-    if (typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return NextResponse.json({ error: "Noto'g'ri email format" }, { status: 400 });
-    }
-    if (password.length < 6) {
-      return NextResponse.json({ error: "Parol kamida 6 belgidan iborat bo'lishi kerak" }, { status: 400 });
-    }
+
+    const { name, email, password } = parsed.data;
 
     const existing = await db.user.findUnique({ where: { email } });
     if (existing) {

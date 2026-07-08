@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import bcrypt from "bcryptjs";
+import { updateUserSchema, deleteAccountSchema } from "@/lib/schemas";
 
 export async function GET() {
   try {
@@ -26,12 +27,15 @@ export async function PATCH(req: Request) {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ error: "Avtorizatsiyadan o'tilmagan" }, { status: 401 });
 
-    const body = await req.json();
-    const allowed = ["name", "timezone", "theme", "language"];
-    const updateData: Record<string, string> = {};
+    const raw = await req.json();
+    const parsed = updateUserSchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || "Noto'g'ri ma'lumot" }, { status: 400 });
+    }
 
-    for (const key of allowed) {
-      if (body[key] !== undefined) updateData[key] = body[key];
+    const updateData: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed.data)) {
+      if (value !== undefined) updateData[key] = value as string;
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -56,9 +60,13 @@ export async function DELETE(req: Request) {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ error: "Avtorizatsiyadan o'tilmagan" }, { status: 401 });
 
-    const { password } = await req.json();
-    if (!password) return NextResponse.json({ error: "Parol talab qilinadi" }, { status: 400 });
+    const raw = await req.json();
+    const parsed = deleteAccountSchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || "Noto'g'ri ma'lumot" }, { status: 400 });
+    }
 
+    const { password } = parsed.data;
     const user = await db.user.findUnique({ where: { id: session.user.id } });
     if (!user) return NextResponse.json({ error: "Foydalanuvchi topilmadi" }, { status: 404 });
 

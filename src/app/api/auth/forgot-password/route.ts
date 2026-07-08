@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import crypto from "crypto";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { forgotPasswordSchema } from "@/lib/schemas";
 
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
@@ -12,10 +13,13 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { email } = await req.json();
-    if (!email || typeof email !== "string") {
-      return NextResponse.json({ error: "Email talab qilinadi" }, { status: 400 });
+    const raw = await req.json();
+    const parsed = forgotPasswordSchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || "Noto'g'ri ma'lumot" }, { status: 400 });
     }
+
+    const { email } = parsed.data;
 
     const user = await db.user.findUnique({ where: { email } });
     if (!user) {

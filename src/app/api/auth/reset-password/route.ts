@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { resetPasswordSchema } from "@/lib/schemas";
 
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
@@ -12,13 +13,13 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { token, password } = await req.json();
-    if (!token || !password) {
-      return NextResponse.json({ error: "Token va parol talab qilinadi" }, { status: 400 });
+    const raw = await req.json();
+    const parsed = resetPasswordSchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || "Noto'g'ri ma'lumot" }, { status: 400 });
     }
-    if (password.length < 6) {
-      return NextResponse.json({ error: "Parol kamida 6 belgidan iborat bo'lishi kerak" }, { status: 400 });
-    }
+
+    const { token, password } = parsed.data;
 
     const resetToken = await db.passwordResetToken.findUnique({ where: { token } });
     if (!resetToken) {
