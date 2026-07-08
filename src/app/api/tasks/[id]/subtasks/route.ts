@@ -23,7 +23,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     });
 
     return NextResponse.json(subtask, { status: 201 });
-  } catch {
+  } catch (e) {
+    console.error("POST /api/tasks/[id]/subtasks error:", e);
     return NextResponse.json({ error: "Xatolik yuz berdi" }, { status: 500 });
   }
 }

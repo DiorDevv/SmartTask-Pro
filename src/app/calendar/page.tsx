@@ -22,6 +22,7 @@ import {
   isSameDay,
   isToday,
 } from "date-fns";
+import { uz } from "date-fns/locale";
 import { useTasks } from "@/hooks/use-tasks";
 import { TaskStatus, STATUS_CONFIG } from "@/types";
 import { TaskModal } from "@/components/tasks/task-modal";
@@ -43,8 +44,8 @@ export default function CalendarPage() {
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(monthStart);
-  const calStart = startOfWeek(monthStart);
-  const calEnd = endOfWeek(monthEnd);
+  const calStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const calEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
 
   const days: Date[] = [];
   let day = calStart;
@@ -88,7 +89,7 @@ export default function CalendarPage() {
           <div className="card p-4">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-text dark:text-text-dark">
-                {format(currentMonth, "MMMM yyyy")}
+                {format(currentMonth, "MMMM yyyy", { locale: uz })}
               </h2>
               <div className="flex items-center gap-1">
                 <button
@@ -175,7 +176,7 @@ export default function CalendarPage() {
             <div className="flex items-center gap-2 mb-4">
               <CalendarIcon className="w-5 h-5 text-primary" />
               <h3 className="font-semibold text-text dark:text-text-dark">
-                {format(selectedDate, "d MMMM, EEEE")}
+                {format(selectedDate, "d MMMM, EEEE", { locale: uz })}
               </h3>
             </div>
 

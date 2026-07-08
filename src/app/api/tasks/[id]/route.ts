@@ -22,7 +22,8 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
 
     await db.task.delete({ where: { id } });
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (e) {
+    console.error("DELETE /api/tasks/[id] error:", e);
     return NextResponse.json({ error: "Xatolik yuz berdi" }, { status: 500 });
   }
 }
@@ -38,9 +39,28 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     const { title, description, status, priority, dueDate, dueTime, category: catName, isRecurring, recurrence } = await req.json();
 
+    const validStatuses = ["PENDING", "IN_PROGRESS", "COMPLETED", "FAILED", "POSTPONED", "CANCELLED"];
+    if (status !== undefined && !validStatuses.includes(status)) {
+      return NextResponse.json({ error: "Noto'g'ri status qiymati" }, { status: 400 });
+    }
+    const validPriorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+    if (priority !== undefined && !validPriorities.includes(priority)) {
+      return NextResponse.json({ error: "Noto'g'ri priority qiymati" }, { status: 400 });
+    }
+
     const updateData: Record<string, unknown> = {};
-    if (title !== undefined) updateData.title = title;
-    if (description !== undefined) updateData.description = description;
+    if (title !== undefined) {
+      if (typeof title !== "string" || title.trim().length > 200) {
+        return NextResponse.json({ error: "Sarlavha 200 belgidan oshmasligi kerak" }, { status: 400 });
+      }
+      updateData.title = title;
+    }
+    if (description !== undefined) {
+      if (typeof description === "string" && description.length > 5000) {
+        return NextResponse.json({ error: "Tavsif 5000 belgidan oshmasligi kerak" }, { status: 400 });
+      }
+      updateData.description = description;
+    }
     if (status !== undefined) {
       updateData.status = status;
       updateData.completedAt = status === "COMPLETED" ? new Date() : null;
@@ -55,7 +75,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       updateData.dueTime = isNaN(d.getTime()) ? null : d;
     }
     if (isRecurring !== undefined) updateData.isRecurring = isRecurring;
-    if (recurrence !== undefined) updateData.recurrence = recurrence;
+    if (recurrence !== undefined) {
+      if (!["daily", "weekly", "monthly"].includes(recurrence)) {
+        return NextResponse.json({ error: "Noto'g'ri recurrence qiymati" }, { status: 400 });
+      }
+      updateData.recurrence = recurrence;
+    }
     if (catName !== undefined) {
       if (catName) {
         const existing = await db.category.findFirst({ where: { name: catName, userId: session.user.id } });
@@ -75,7 +100,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const task = await db.task.update({
       where: { id },
       data: updateData,
-      include: { category: true, subtasks: true, tags: true, reminders: true, attachments: true },
     });
 
     if (status === "COMPLETED") {
@@ -88,7 +112,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json(task);
   } catch (e) {
     console.error("PATCH /api/tasks/[id] error:", e);
-    const message = e instanceof Error ? e.message : "Xatolik yuz berdi";
-    return NextResponse.json({ error: message }, { status: 500 });
+    if (e instanceof Error && "code" in e && (e as any).code === "P2025") {
+      return NextResponse.json({ error: "Vazifa topilmadi" }, { status: 404 });
+    }
+    return NextResponse.json({ error: "Xatolik yuz berdi" }, { status: 500 });
   }
 }

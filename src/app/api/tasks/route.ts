@@ -35,6 +35,16 @@ export async function POST(req: Request) {
     const { title, description, priority, dueDate: dDate, dueTime: dTime, category, isRecurring, recurrence } = await req.json();
 
     if (!title?.trim()) return NextResponse.json({ error: "Vazifa nomi talab qilinadi" }, { status: 400 });
+    if (title.trim().length > 200) return NextResponse.json({ error: "Sarlavha 200 belgidan oshmasligi kerak" }, { status: 400 });
+    if (description && description.length > 5000) return NextResponse.json({ error: "Tavsif 5000 belgidan oshmasligi kerak" }, { status: 400 });
+
+    const validPriorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+    if (priority && !validPriorities.includes(priority)) {
+      return NextResponse.json({ error: "Noto'g'ri priority qiymati" }, { status: 400 });
+    }
+    if (recurrence && !["daily", "weekly", "monthly"].includes(recurrence)) {
+      return NextResponse.json({ error: "Noto'g'ri recurrence qiymati" }, { status: 400 });
+    }
 
     let dueDate: Date | null = null;
     if (dDate) {

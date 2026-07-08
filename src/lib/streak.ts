@@ -4,7 +4,7 @@ export async function updateStreak(userId: string) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  let streak = await db.streak.findFirst({ where: { userId } });
+  let streak = await db.streak.findUnique({ where: { userId } });
   if (!streak) {
     streak = await db.streak.create({ data: { userId } });
   }

@@ -41,15 +41,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     newUser: "/auth/register",
   },
   callbacks: {
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        try {
-          const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { avatar: true } });
-          token.avatar = dbUser?.avatar || null;
-        } catch {
-          token.avatar = null;
-        }
+        token.avatar = (user as any).avatar || null;
       }
       return token;
     },

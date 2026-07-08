@@ -39,13 +39,13 @@ export default function AnalyticsPage() {
   const { data: tasks = [], isLoading } = useTasks();
   const { data: streak } = useStreak();
   const theme = useThemeStore((s) => s.theme);
-  const [isDark, setIsDark] = useState(false);
+  const calcDark = (t: string) =>
+    t === "dark" || (t === "system" && typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const [isDark, setIsDark] = useState(calcDark(theme));
   useEffect(() => {
-    const check = () => setIsDark(
-      theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)
-    );
-    check();
+    setIsDark(calcDark(theme));
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const check = () => setIsDark(calcDark(theme));
     mq.addEventListener("change", check);
     return () => mq.removeEventListener("change", check);
   }, [theme]);

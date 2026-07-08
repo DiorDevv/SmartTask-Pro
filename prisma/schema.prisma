@@ -98,6 +98,11 @@ model Task {
   updatedAt   DateTime  @updatedAt
   completedAt DateTime?
   archivedAt  DateTime?
+
+  @@index([userId, status])
+  @@index([userId, dueDate])
+  @@index([userId, archivedAt])
+  @@index([isRecurring, status, dueDate])
 }
 
 model Category {
@@ -138,6 +143,8 @@ model Reminder {
   remindAt DateTime
   type     String   @default("push")
   sent     Boolean  @default(false)
+
+  @@index([remindAt, sent])
 }
 
 model Attachment {

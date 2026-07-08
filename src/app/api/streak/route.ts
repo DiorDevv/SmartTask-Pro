@@ -7,7 +7,7 @@ export async function GET() {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ error: "Avtorizatsiyadan o'tilmagan" }, { status: 401 });
 
-    let streak = await db.streak.findFirst({
+    let streak = await db.streak.findUnique({
       where: { userId: session.user.id },
     });
 
