@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
-import { createTaskSchema } from "@/lib/schemas";
+import { createTaskSchema, zodErr } from "@/lib/schemas";
 export async function GET(req: Request) {
   try {
     const session = await auth();
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     const raw = await req.json();
     const parsed = createTaskSchema.safeParse(raw);
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.issues[0]?.message || "Noto'g'ri ma'lumot" }, { status: 400 });
+      return NextResponse.json({ error: zodErr(parsed.error) }, { status: 400 });
     }
 
     const { title, description, priority, dueDate: dDate, dueTime: dTime, category, isRecurring, recurrence } = parsed.data;

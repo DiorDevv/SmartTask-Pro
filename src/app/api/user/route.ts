@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import bcrypt from "bcryptjs";
-import { updateUserSchema, deleteAccountSchema } from "@/lib/schemas";
+import { updateUserSchema, deleteAccountSchema, zodErr } from "@/lib/schemas";
 
 export async function GET() {
   try {
@@ -30,7 +30,7 @@ export async function PATCH(req: Request) {
     const raw = await req.json();
     const parsed = updateUserSchema.safeParse(raw);
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.issues[0]?.message || "Noto'g'ri ma'lumot" }, { status: 400 });
+      return NextResponse.json({ error: zodErr(parsed.error) }, { status: 400 });
     }
 
     const updateData: Record<string, string> = {};
@@ -63,7 +63,7 @@ export async function DELETE(req: Request) {
     const raw = await req.json();
     const parsed = deleteAccountSchema.safeParse(raw);
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.issues[0]?.message || "Noto'g'ri ma'lumot" }, { status: 400 });
+      return NextResponse.json({ error: zodErr(parsed.error) }, { status: 400 });
     }
 
     const { password } = parsed.data;

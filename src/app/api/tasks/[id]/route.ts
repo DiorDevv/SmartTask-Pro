@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { updateStreak } from "@/lib/streak";
 import { handleRecurringTask } from "@/lib/recurring";
-import { updateTaskSchema } from "@/lib/schemas";
+import { updateTaskSchema, zodErr } from "@/lib/schemas";
 
 async function getOwnedTask(id: string, userId: string) {
   const task = await db.task.findUnique({ where: { id } });
@@ -41,7 +41,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const raw = await req.json();
     const parsed = updateTaskSchema.safeParse(raw);
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.issues[0]?.message || "Noto'g'ri ma'lumot" }, { status: 400 });
+      return NextResponse.json({ error: zodErr(parsed.error) }, { status: 400 });
     }
 
     const { title, description, status, priority, dueDate, dueTime, category: catName, isRecurring, recurrence } = parsed.data;
