@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import bcrypt from "bcryptjs";
 
 export async function GET() {
   try {
@@ -50,10 +51,21 @@ export async function PATCH(req: Request) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(req: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ error: "Avtorizatsiyadan o'tilmagan" }, { status: 401 });
+
+    const { password } = await req.json();
+    if (!password) return NextResponse.json({ error: "Parol talab qilinadi" }, { status: 400 });
+
+    const user = await db.user.findUnique({ where: { id: session.user.id } });
+    if (!user) return NextResponse.json({ error: "Foydalanuvchi topilmadi" }, { status: 404 });
+
+    if (user.password) {
+      const isValid = await bcrypt.compare(password, user.password);
+      if (!isValid) return NextResponse.json({ error: "Noto'g'ri parol" }, { status: 403 });
+    }
 
     await db.user.delete({ where: { id: session.user.id } });
     return NextResponse.json({ success: true });
