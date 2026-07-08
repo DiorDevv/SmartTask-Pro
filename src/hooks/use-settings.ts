@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
 import { User } from "@/types";
 
 async function fetchUser(): Promise<User> {
@@ -32,8 +33,12 @@ export function useUser() {
 
 export function useUpdateUser() {
   const queryClient = useQueryClient();
+  const { update } = useSession();
   return useMutation({
     mutationFn: updateUser,
+    onSuccess: (data) => {
+      update({ name: data.name, avatar: data.avatar, picture: data.avatar });
+    },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["user"] }),
   });
 }

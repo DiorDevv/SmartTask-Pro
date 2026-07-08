@@ -97,6 +97,17 @@ export interface User {
   updatedAt: Date;
 }
 
+export interface AppNotification {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  message: string | null;
+  taskId: string | null;
+  read: boolean;
+  createdAt: Date;
+}
+
 export const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string; bgColor: string; icon: string }> = {
   [TaskStatus.PENDING]: {
     label: "Bajarilmagan",

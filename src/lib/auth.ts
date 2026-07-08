@@ -49,23 +49,48 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     newUser: "/auth/register",
   },
   callbacks: {
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user, trigger, session: updateData }) {
       if (user) {
         token.id = user.id;
-        if (trigger === "signIn" || trigger === "signUp") {
-          try {
-            const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { avatar: true } });
-            token.avatar = dbUser?.avatar || null;
-          } catch {
-            token.avatar = null;
-          }
+        token.name = user.name;
+        token.email = user.email;
+        token.avatar = user.avatar;
+        token.picture = user.avatar;
+      }
+
+      if (trigger === "update" && updateData) {
+        if (updateData.name !== undefined) token.name = updateData.name;
+        if (updateData.email !== undefined) token.email = updateData.email;
+        if (updateData.avatar !== undefined) {
+          token.avatar = updateData.avatar;
+          token.picture = updateData.avatar;
         }
       }
+
+      if (trigger === "signIn" || trigger === "signUp") {
+        try {
+          const dbUser = await db.user.findUnique({
+            where: { id: token.id },
+            select: { name: true, email: true, avatar: true },
+          });
+          if (dbUser) {
+            token.name = dbUser.name;
+            token.email = dbUser.email;
+            token.avatar = dbUser.avatar;
+            token.picture = dbUser.avatar;
+          }
+        } catch {
+          // token already has values from user object
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.name = token.name;
+        session.user.email = token.email ?? "";
         (session.user as any).avatar = token.avatar || null;
       }
       return session;

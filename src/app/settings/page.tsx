@@ -22,6 +22,9 @@ import {
 } from "lucide-react";
 import { useThemeStore } from "@/store/theme-store";
 import { useUser, useUpdateUser } from "@/hooks/use-settings";
+import { useQueryClient } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
+import type { User as UserType } from "@/types";
 
 const settingsSections = [
   { id: "profile", label: "Profil", icon: User },
@@ -38,6 +41,8 @@ export default function SettingsPage() {
   const { theme, setTheme } = useThemeStore();
   const { data: user, isLoading } = useUser();
   const updateUser = useUpdateUser();
+  const { update } = useSession();
+  const queryClient = useQueryClient();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -55,19 +60,19 @@ export default function SettingsPage() {
   }, [user]);
 
   const handleSaveProfile = async () => {
-    await updateUser.mutateAsync({ name, timezone } as any);
+    await updateUser.mutateAsync({ name, timezone } as Partial<UserType>);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const handleThemeChange = async (newTheme: string) => {
-    setTheme(newTheme as any);
-    await updateUser.mutateAsync({ theme: newTheme } as any);
+  const handleThemeChange = async (newTheme: "light" | "dark" | "system") => {
+    setTheme(newTheme);
+    await updateUser.mutateAsync({ theme: newTheme } as Partial<UserType>);
   };
 
   const handleLanguageChange = async (newLang: string) => {
     setLang(newLang);
-    await updateUser.mutateAsync({ language: newLang } as any);
+    await updateUser.mutateAsync({ language: newLang } as Partial<UserType>);
   };
 
   return (
@@ -135,8 +140,15 @@ export default function SettingsPage() {
                         const formData = new FormData();
                         formData.append("avatar", file);
                         const res = await fetch("/api/user/avatar", { method: "POST", body: formData });
-                        if (res.ok) { window.location.reload(); }
-                        else { const d = await res.json(); toast.error(d.error || "Xatolik"); }
+                        if (res.ok) {
+                          const data = await res.json();
+                          update({ avatar: data.avatar, picture: data.avatar });
+                          queryClient.invalidateQueries({ queryKey: ["user"] });
+                          toast.success("Rasm yangilandi");
+                        } else {
+                          const d = await res.json();
+                          toast.error(d.error || "Xatolik");
+                        }
                       }} />
                       <button className="btn-secondary btn-sm" onClick={() => document.getElementById("avatar-upload")?.click()}>Rasmni o'zgartirish</button>
                       <p className="text-xs text-muted mt-1">PNG, JPG, WEBP. 1MB gacha</p>
@@ -190,9 +202,9 @@ export default function SettingsPage() {
                 <label className="block text-sm font-medium text-muted mb-3">Mavzu</label>
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { value: "light", label: "Yorug'", icon: Sun },
-                    { value: "dark", label: "Qorong'u", icon: Moon },
-                    { value: "system", label: "Tizim", icon: Monitor },
+                    { value: "light" as const, label: "Yorug'", icon: Sun },
+                    { value: "dark" as const, label: "Qorong'u", icon: Moon },
+                    { value: "system" as const, label: "Tizim", icon: Monitor },
                   ].map(({ value, label, icon: Icon }) => (
                     <button
                       key={value}

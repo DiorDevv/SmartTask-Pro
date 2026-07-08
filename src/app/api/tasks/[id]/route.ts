@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { updateStreak } from "@/lib/streak";
 import { handleRecurringTask } from "@/lib/recurring";
+import { notifyTaskCompleted } from "@/lib/notifications";
 import { updateTaskSchema, zodErr } from "@/lib/schemas";
 
 async function getOwnedTask(id: string, userId: string) {
@@ -84,7 +85,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     });
 
     if (status === "COMPLETED") {
-      await updateStreak(session.user.id);
+      await Promise.all([
+        updateStreak(session.user.id),
+        notifyTaskCompleted(session.user.id, existing.title, id),
+      ]);
       if (existing.isRecurring) {
         await handleRecurringTask(id);
       }
