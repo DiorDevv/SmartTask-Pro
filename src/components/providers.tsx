@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SessionProvider } from "next-auth/react";
 import { Component, useEffect } from "react";
+import { Toaster } from "sonner";
 import { useThemeStore } from "@/store/theme-store";
 
 const queryClient = new QueryClient({
@@ -60,7 +61,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <SessionProvider>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <ErrorBoundary>{children}</ErrorBoundary>
+          <ErrorBoundary>
+            {children}
+            <Toaster richColors position="top-right" />
+          </ErrorBoundary>
         </ThemeProvider>
       </QueryClientProvider>
     </SessionProvider>

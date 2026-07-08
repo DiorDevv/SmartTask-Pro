@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import {
   User,
   Bell,
@@ -130,12 +131,12 @@ export default function SettingsPage() {
                       <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" id="avatar-upload" className="hidden" onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
-                        if (file.size > 1_048_576) { alert("Rasm hajmi 1MB dan oshmasligi kerak"); return; }
+                        if (file.size > 1_048_576) { toast.error("Rasm hajmi 1MB dan oshmasligi kerak"); return; }
                         const formData = new FormData();
                         formData.append("avatar", file);
                         const res = await fetch("/api/user/avatar", { method: "POST", body: formData });
                         if (res.ok) { window.location.reload(); }
-                        else { const d = await res.json(); alert(d.error || "Xatolik"); }
+                        else { const d = await res.json(); toast.error(d.error || "Xatolik"); }
                       }} />
                       <button className="btn-secondary btn-sm" onClick={() => document.getElementById("avatar-upload")?.click()}>Rasmni o'zgartirish</button>
                       <p className="text-xs text-muted mt-1">PNG, JPG, WEBP. 1MB gacha</p>
@@ -285,7 +286,15 @@ export default function SettingsPage() {
               </div>
 
               <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
-                <button className="btn-danger btn-sm" onClick={async () => { if (confirm("Hisobingizni o'chirishni xohlaysizmi? Bu amalni qaytarib bo'lmaydi.")) { await fetch("/api/user", { method: "DELETE" }); window.location.href = "/auth/login"; } }}>Hisobni o'chirish</button>
+                <button className="btn-danger btn-sm" onClick={async () => {
+                  const password = prompt("Hisobni o'chirish uchun parolingizni kiriting:");
+                  if (!password) return;
+                  try {
+                    const res = await fetch("/api/user", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
+                    if (res.ok) { window.location.href = "/auth/login"; }
+                    else { const d = await res.json(); toast.error(d.error || "Xatolik"); }
+                  } catch { toast.error("Xatolik yuz berdi"); }
+                }}>Hisobni o'chirish</button>
               </div>
             </motion.div>
           )}

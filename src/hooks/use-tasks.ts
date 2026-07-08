@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Task, TaskStatus } from "@/types";
 
 async function fetchTasks(): Promise<Task[]> {
@@ -39,8 +40,9 @@ export function useUpdateTaskStatus() {
       );
       return { previous };
     },
-    onError: (_err, _vars, context) => {
+    onError: (err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(["tasks"], context.previous);
+      toast.error(err instanceof Error ? err.message : "Statusni yangilashda xatolik");
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
   });
@@ -61,8 +63,9 @@ export function useDeleteTask() {
       queryClient.setQueryData<Task[]>(["tasks"], (old) => (old ?? []).filter((t) => t.id !== id));
       return { previous };
     },
-    onError: (_err, _id, context) => {
+    onError: (err, _id, context) => {
       if (context?.previous) queryClient.setQueryData(["tasks"], context.previous);
+      toast.error(err instanceof Error ? err.message : "Vazifani o'chirishda xatolik");
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
   });
