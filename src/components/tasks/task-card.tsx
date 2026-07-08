@@ -149,7 +149,7 @@ export function TaskCard({ task, onStatusChange, onEdit, onDelete }: TaskCardPro
           </motion.button>
           <motion.button
             whileTap={{ scale: 0.9 }}
-            onClick={() => onDelete(task.id)}
+            onClick={() => { if (confirm("Vazifani o'chirishni xohlaysizmi?")) onDelete(task.id); }}
             className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-all"
           >
             <Trash2 className="w-4 h-4" />
