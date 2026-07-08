@@ -24,7 +24,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!user || !user.password) return null;
         const isValid = await bcrypt.compare(credentials.password as string, user.password);
         if (!isValid) return null;
-        return { id: user.id, email: user.email, name: user.name };
+        return { id: user.id, email: user.email, name: user.name, avatar: user.avatar };
       },
     }),
     ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET ? [Google({
@@ -41,10 +41,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     newUser: "/auth/register",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id;
-        token.avatar = (user as any).avatar || null;
+        if (trigger === "signIn" || trigger === "signUp") {
+          try {
+            const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { avatar: true } });
+            token.avatar = dbUser?.avatar || null;
+          } catch {
+            token.avatar = null;
+          }
+        }
       }
       return token;
     },
