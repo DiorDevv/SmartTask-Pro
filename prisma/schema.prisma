@@ -166,3 +166,13 @@ model Streak {
   longestStreak Int       @default(0)
   lastActive    DateTime?
 }
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
