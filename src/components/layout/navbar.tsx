@@ -40,7 +40,11 @@ const NOTIFICATION_COLORS: Record<string, string> = {
   system: "bg-indigo-500",
 };
 
-export function Navbar() {
+interface NavbarProps {
+  sidebarCollapsed?: boolean;
+}
+
+export function Navbar({ sidebarCollapsed = false }: NavbarProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const { theme, setTheme } = useThemeStore();
@@ -112,7 +116,7 @@ export function Navbar() {
   };
 
   return (
-    <header className="fixed top-0 right-0 left-64 h-16 glass z-20 flex items-center justify-between px-6">
+    <header className={`fixed top-0 right-0 ${sidebarCollapsed ? "left-[72px]" : "left-64"} h-16 glass z-20 flex items-center justify-between px-6 transition-all duration-200`}>
       <div className="flex items-center gap-4 flex-1 max-w-lg">
         <form onSubmit={handleSearch} className="relative w-full">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -282,8 +286,8 @@ export function Navbar() {
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300 hidden sm:block">
               {session?.user?.name || "Foydalanuvchi"}
             </span>
-            {Boolean((session?.user as Record<string, unknown>)?.avatar) ? (
-              <img src={(session?.user as Record<string, unknown>).avatar as string} alt="" className="w-8 h-8 rounded-xl object-cover shadow-lg shadow-indigo-500/20" />
+            {session?.user?.avatar ? (
+              <img src={session.user.avatar} alt="Profil rasmi" className="w-8 h-8 rounded-xl object-cover shadow-lg shadow-indigo-500/20" />
             ) : (
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-sm font-semibold shadow-lg shadow-indigo-500/20">
                 {session?.user?.name?.[0]?.toUpperCase() || "U"}

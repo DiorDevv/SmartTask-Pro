@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
@@ -11,7 +10,6 @@ import {
   BarChart3,
   Settings,
   ChevronLeft,
-  ChevronRight,
   Plus,
   Target,
 } from "lucide-react";
@@ -25,12 +23,13 @@ const navItems = [
 ];
 
 interface SidebarProps {
+  collapsed: boolean;
+  onToggle: () => void;
   onNewTask: () => void;
 }
 
-export function Sidebar({ onNewTask }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, onNewTask }: SidebarProps) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
 
   const linkClass = (href: string) => {
     const isActive = pathname.startsWith(href);
@@ -107,7 +106,7 @@ export function Sidebar({ onNewTask }: SidebarProps) {
       </div>
 
       <button
-        onClick={() => setCollapsed(!collapsed)}
+        onClick={onToggle}
         className="flex items-center justify-center h-11 border-t border-white/5 text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
       >
         <motion.div animate={{ rotate: collapsed ? 180 : 0 }}>

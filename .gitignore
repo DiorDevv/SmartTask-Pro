@@ -5,3 +5,26 @@ node_modules/
 *.log
 .DS_Store
 public/uploads/
+
+# Build output
+dist/
+build/
+
+# IDE settings
+.vscode/
+.idea/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Test coverage
+coverage/
+
+# Turbopack cache
+.turbo/
+
+# SSL/keys
+*.pem
+*.key
+*.cert

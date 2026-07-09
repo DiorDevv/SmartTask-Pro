@@ -38,7 +38,10 @@ export async function POST(req: Request) {
     });
 
     const resetUrl = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/auth/reset-password?token=${token}`;
-    console.log(`[RESET PASSWORD] Email: ${email} -> ${resetUrl}`);
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`[DEV] Password reset link: ${resetUrl}`);
+    }
 
     return NextResponse.json({ message: "Agar email tizimda mavjud bo'lsa, parolni tiklash linki yuboriladi" });
   } catch (e) {

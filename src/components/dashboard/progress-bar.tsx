@@ -28,7 +28,14 @@ export function ProgressBar({ value, label, size = "md", showLabel = true }: Pro
           <span className="text-sm font-bold text-gray-900 dark:text-gray-50">{Math.round(clampedValue)}%</span>
         </div>
       )}
-      <div className={`w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden ${heights[size]}`}>
+      <div
+          role="progressbar"
+          aria-valuenow={Math.round(clampedValue)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={label || "Progress"}
+          className={`w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden ${heights[size]}`}
+        >
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: `${clampedValue}%` }}

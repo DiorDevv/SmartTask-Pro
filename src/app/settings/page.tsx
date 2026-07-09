@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
@@ -18,12 +18,19 @@ import {
   Languages,
   LoaderCircle,
   CheckCircle2,
+  Download,
+  Upload,
+  FileJson,
+  FileSpreadsheet,
+  FileDown,
+  Archive,
+  Trash2,
 } from "lucide-react";
 import { useThemeStore } from "@/store/theme-store";
 import { useUser, useUpdateUser } from "@/hooks/use-settings";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
-import type { Task, User as UserType } from "@/types";
+import type { User as UserType } from "@/types";
 
 const settingsSections = [
   { id: "profile", label: "Profil", icon: User },
@@ -48,6 +55,9 @@ export default function SettingsPage() {
   const [timezone, setTimezone] = useState("Asia/Tashkent");
   const [lang, setLang] = useState("uz");
   const [saved, setSaved] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [exporting, setExporting] = useState<"json" | "csv" | "xlsx" | null>(null);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -57,6 +67,57 @@ export default function SettingsPage() {
       setLang(user.language || "uz");
     }
   }, [user]);
+
+  const handleExport = async (format: "json" | "csv" | "xlsx") => {
+    setExporting(format);
+    try {
+      const res = await fetch(`/api/export?format=${format}`);
+      if (!res.ok) throw new Error("Eksportda xatolik");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `reja-export-${new Date().toISOString().slice(0, 10)}.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`${format === "json" ? "JSON" : "CSV"} formatida eksport qilindi`);
+    } catch {
+      toast.error("Eksportda xatolik yuz berdi");
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    if (ext !== "json" && ext !== "xlsx") {
+      toast.error("Faqat JSON yoki XLSX fayl import qilish mumkin");
+      return;
+    }
+    setImporting(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/import", {
+        method: "POST",
+        body: formData,
+      });
+      const result = await res.json();
+      if (res.ok) {
+        toast.success(result.message);
+        queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      } else {
+        toast.error(result.error || "Importda xatolik");
+      }
+    } catch {
+      toast.error("Faylni o'qishda xatolik. Fayl formatini tekshiring");
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const handleSaveProfile = async () => {
     await updateUser.mutateAsync({ name, timezone } as Partial<UserType>);
@@ -318,34 +379,176 @@ export default function SettingsPage() {
             >
               <h3 className="text-lg font-semibold text-text dark:text-text-dark">Ma'lumotlar boshqaruvi</h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <button className="btn-secondary btn-md" onClick={async () => {
-                  try {
-                    const res = await fetch("/api/tasks?take=10000");
-                    const data = await res.json();
-                    const tasks = Array.isArray(data) ? data : data.tasks;
-                    const csv = [["Sarlavha", "Status", "Priority", "Muddat", "Kategoriya"]].concat(
-                      tasks.map((t: Task) => [t.title, t.status, t.priority, t.dueDate || "", t.category?.name || ""])
-                    ).map((r) => r.join(",")).join("\n");
-                    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `reja-vazifalar-${new Date().toISOString().slice(0, 10)}.csv`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                    toast.success("Ma'lumotlar eksport qilindi");
-                  } catch { toast.error("Xatolik yuz berdi"); }
-                }}>
-                  <Database className="w-4 h-4" />
-                  Ma'lumotlarni eksport qilish
-                </button>
-                <button className="btn-secondary btn-md" disabled>
-                  <Database className="w-4 h-4" />
-                  Ma'lumotlarni import qilish
-                </button>
-                <button className="btn-secondary btn-md" disabled>Arxivni tozalash</button>
-                <button className="btn-secondary btn-md" disabled>Barcha ma'lumotlarni yuklab olish</button>
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-medium text-muted mb-3">Eksport</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-all disabled:opacity-50"
+                      onClick={() => handleExport("json")}
+                      disabled={exporting !== null}
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                        <FileJson className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-text dark:text-text-dark">
+                          {exporting === "json" ? "Yuklanmoqda..." : "JSON"}
+                        </p>
+                        <p className="text-xs text-muted truncate">To'liq ma'lumotlar (subtasks, tags, reminders)</p>
+                      </div>
+                      {exporting === "json" ? (
+                        <LoaderCircle className="w-5 h-5 animate-spin text-muted" />
+                      ) : (
+                        <Download className="w-5 h-5 text-muted" />
+                      )}
+                    </motion.button>
+
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-all disabled:opacity-50"
+                      onClick={() => handleExport("csv")}
+                      disabled={exporting !== null}
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                        <FileSpreadsheet className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-text dark:text-text-light">
+                          {exporting === "csv" ? "Yuklanmoqda..." : "CSV"}
+                        </p>
+                        <p className="text-xs text-muted truncate">Excel/Google Sheets uchun mos</p>
+                      </div>
+                      {exporting === "csv" ? (
+                        <LoaderCircle className="w-5 h-5 animate-spin text-muted" />
+                      ) : (
+                        <Download className="w-5 h-5 text-muted" />
+                      )}
+                    </motion.button>
+
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex items-center gap-3 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800 hover:border-emerald-400 dark:hover:border-emerald-600 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all disabled:opacity-50"
+                      onClick={() => handleExport("xlsx")}
+                      disabled={exporting !== null}
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                        <FileDown className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-text dark:text-text-light">
+                          {exporting === "xlsx" ? "Yuklanmoqda..." : "Excel (XLSX)"}
+                        </p>
+                        <p className="text-xs text-muted truncate">4 varaqli professional hisobot</p>
+                      </div>
+                      {exporting === "xlsx" ? (
+                        <LoaderCircle className="w-5 h-5 animate-spin text-muted" />
+                      ) : (
+                        <Download className="w-5 h-5 text-muted" />
+                      )}
+                    </motion.button>
+                  </div>
+                </div>
+
+                <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
+                  <h4 className="text-sm font-medium text-muted mb-3">Import</h4>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".json,.xlsx"
+                    className="hidden"
+                    onChange={handleImport}
+                  />
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-all w-full disabled:opacity-50"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={importing}
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center flex-shrink-0">
+                      {importing ? (
+                        <LoaderCircle className="w-5 h-5 animate-spin text-violet-600 dark:text-violet-400" />
+                      ) : (
+                        <Upload className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-text dark:text-text-light">
+                        {importing ? "Import qilinmoqda..." : "JSON yoki XLSX import"}
+                      </p>
+                      <p className="text-xs text-muted truncate">Avvalgi eksport qilingan faylni yuklang (JSON yoki Excel)</p>
+                    </div>
+                  </motion.button>
+                </div>
+
+                <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
+                  <h4 className="text-sm font-medium text-muted mb-3">Xavfli hudud</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex items-center gap-3 p-4 rounded-xl border border-red-200 dark:border-red-800 hover:border-red-400 dark:hover:border-red-600 hover:bg-red-50/50 dark:hover:bg-red-900/20 transition-all"
+                      onClick={() => {
+                        if (confirm("Barcha arxivlangan vazifalarni tozalashni xohlaysizmi?")) {
+                          toast.success("Arxiv tozalanmadi (hali ishlab chiqilmoqda)");
+                        }
+                      }}
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+                        <Archive className="w-5 h-5 text-red-600 dark:text-red-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-text dark:text-text-light">Arxivni tozalash</p>
+                        <p className="text-xs text-muted">Barcha arxivivangan vazifalarni o'chirish</p>
+                      </div>
+                    </motion.button>
+
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex items-center gap-3 p-4 rounded-xl border border-red-200 dark:border-red-800 hover:border-red-400 dark:hover:border-red-600 hover:bg-red-50/50 dark:hover:bg-red-900/20 transition-all disabled:opacity-50"
+                      onClick={() => handleExport("json")}
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
+                        <FileDown className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-text dark:text-text-light">Barcha ma'lumotlarni yuklab olish</p>
+                        <p className="text-xs text-muted">Butun hisobingizni zaxiralash</p>
+                      </div>
+                    </motion.button>
+
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex items-center gap-3 p-4 rounded-xl border border-red-200 dark:border-red-800 hover:border-red-400 dark:hover:border-red-600 hover:bg-red-50/50 dark:hover:bg-red-900/20 transition-all disabled:opacity-50"
+                      onClick={async () => {
+                        if (!confirm("Barcha vazifalar, kategoriyalar va taglarni o'chirishni xohlaysizmi? Bu amalni qaytarib bo'lmaydi!")) return;
+                        try {
+                          const res = await fetch("/api/clear-data", { method: "POST" });
+                          if (!res.ok) throw new Error();
+                          toast.success("Barcha ma'lumotlar o'chirildi");
+                          queryClient.invalidateQueries({ queryKey: ["tasks"] });
+                        } catch {
+                          toast.error("Ma'lumotlarni o'chirishda xatolik");
+                        }
+                      }}
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+                        <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-text dark:text-text-light">Barcha ma'lumotlarni o'chirish</p>
+                        <p className="text-xs text-muted">Vazifalar, kategoriya va taglarni butunlay o'chirish</p>
+                      </div>
+                    </motion.button>
+                  </div>
+                </div>
               </div>
             </motion.div>
           )}

@@ -12,9 +12,6 @@ import {
   Edit3,
   ChevronDown,
   ChevronRight,
-  AlertCircle,
-  Ban,
-  CalendarOff,
   ListChecks,
 } from "lucide-react";
 import { Task, TaskStatus, STATUS_CONFIG, PRIORITY_CONFIG } from "@/types";
@@ -27,22 +24,12 @@ interface TaskCardProps {
   onDelete: (id: string) => void;
 }
 
-const statusIcons: Record<TaskStatus, typeof Circle> = {
-  [TaskStatus.PENDING]: Circle,
-  [TaskStatus.IN_PROGRESS]: Clock,
-  [TaskStatus.COMPLETED]: CheckCircle2,
-  [TaskStatus.FAILED]: AlertCircle,
-  [TaskStatus.POSTPONED]: CalendarOff,
-  [TaskStatus.CANCELLED]: Ban,
-};
-
 export function TaskCard({ task, onStatusChange, onEdit, onDelete }: TaskCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   const statusConfig = STATUS_CONFIG[task.status];
   const priorityConfig = PRIORITY_CONFIG[task.priority];
   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== TaskStatus.COMPLETED && task.status !== TaskStatus.CANCELLED;
-  const StatusIcon = statusIcons[task.status];
 
   const handleToggle = () => {
     const newStatus = task.status === TaskStatus.COMPLETED ? TaskStatus.IN_PROGRESS : TaskStatus.COMPLETED;
@@ -71,6 +58,7 @@ export function TaskCard({ task, onStatusChange, onEdit, onDelete }: TaskCardPro
         <motion.button
           whileTap={{ scale: 0.85 }}
           onClick={handleToggle}
+          aria-label={task.status === TaskStatus.COMPLETED ? "Vazifani ochiq deb belgilash" : "Vazifani bajarildi deb belgilash"}
           className="mt-0.5 flex-shrink-0 transition-all"
         >
           {task.status === TaskStatus.COMPLETED ? (
@@ -143,6 +131,7 @@ export function TaskCard({ task, onStatusChange, onEdit, onDelete }: TaskCardPro
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => onEdit(task)}
+            aria-label="Vazifani tahrirlash"
             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-all"
           >
             <Edit3 className="w-4 h-4" />
@@ -150,6 +139,7 @@ export function TaskCard({ task, onStatusChange, onEdit, onDelete }: TaskCardPro
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => { if (confirm("Vazifani o'chirishni xohlaysizmi?")) onDelete(task.id); }}
+            aria-label="Vazifani o'chirish"
             className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-all"
           >
             <Trash2 className="w-4 h-4" />

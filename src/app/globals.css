@@ -112,6 +112,16 @@
 }
 
 @utility btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: none;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  font-weight: 600;
+  line-height: 1;
+  transition: all 0.2s;
   background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
   color: white;
   box-shadow: 0 1px 3px 0 rgb(99 102 241 / 0.3);
@@ -178,6 +188,7 @@
 
 @utility btn-md {
   padding: 0.625rem 1.125rem;
+  font-size: 0.875rem;
 }
 
 @utility btn-lg {
