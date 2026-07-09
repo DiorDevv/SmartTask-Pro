@@ -1,4 +1,3 @@
-import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -6,9 +5,12 @@ const publicRoutes = ["/auth/login", "/auth/register", "/auth/forgot-password", 
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
 
-  const isLoggedIn = !!token;
+  // Edge Runtime da JWT dekodlash mumkin emas (jose CompressionStream error),
+  // shuning uchun cookie bor/yo'qligini tekshiramiz
+  const sessionCookie = req.cookies.get("__Secure-authjs.session-token")?.value
+    || req.cookies.get("authjs.session-token")?.value;
+  const isLoggedIn = !!sessionCookie;
   const isPublic = publicRoutes.some((route) => pathname.startsWith(route));
   const isStatic = pathname.startsWith("/_next") || pathname.startsWith("/uploads") || pathname === "/manifest.json";
 
