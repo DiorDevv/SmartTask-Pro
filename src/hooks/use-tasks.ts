@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Task, TaskStatus } from "@/types";
 
 async function fetchTasks(): Promise<Task[]> {
-  const res = await fetch("/api/tasks?take=500");
+  const res = await fetch("/api/tasks?take=1000");
   if (!res.ok) throw new Error("Vazifalarni yuklashda xatolik");
   const data = await res.json();
   return Array.isArray(data) ? data : data.tasks;

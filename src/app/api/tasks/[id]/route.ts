@@ -5,6 +5,7 @@ import { updateStreak } from "@/lib/streak";
 import { handleRecurringTask } from "@/lib/recurring";
 import { notifyTaskCompleted } from "@/lib/notifications";
 import { updateTaskSchema, zodErr } from "@/lib/schemas";
+import { parseDateWithTime } from "@/lib/utils";
 
 async function getOwnedTask(id: string, userId: string) {
   const task = await db.task.findUnique({ where: { id } });
@@ -56,10 +57,21 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
     if (priority !== undefined) updateData.priority = priority;
     if (dueDate !== undefined) {
-      updateData.dueDate = dueDate ? new Date(dueDate) : null;
-    }
-    if (dueTime !== undefined) {
-      updateData.dueTime = dueTime ? new Date(dueTime) : null;
+      if (dueDate) {
+        const { date, time } = parseDateWithTime(dueDate, dueTime);
+        updateData.dueDate = date;
+        updateData.dueTime = time || date;
+      } else {
+        updateData.dueDate = null;
+        updateData.dueTime = null;
+      }
+    } else if (dueTime !== undefined) {
+      if (dueTime && existing.dueDate) {
+        const { time } = parseDateWithTime(existing.dueDate.toISOString().split("T")[0], dueTime);
+        updateData.dueTime = time;
+      } else {
+        updateData.dueTime = null;
+      }
     }
     if (isRecurring !== undefined) updateData.isRecurring = isRecurring;
     if (recurrence !== undefined) updateData.recurrence = recurrence;

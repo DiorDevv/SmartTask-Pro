@@ -67,23 +67,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
       }
 
-      if (trigger === "signIn" || trigger === "signUp") {
-        try {
-          const dbUser = await db.user.findUnique({
-            where: { id: token.id },
-            select: { name: true, email: true, avatar: true },
-          });
-          if (dbUser) {
-            token.name = dbUser.name;
-            token.email = dbUser.email;
-            token.avatar = dbUser.avatar;
-            token.picture = dbUser.avatar;
-          }
-        } catch {
-          // token already has values from user object
-        }
-      }
-
       return token;
     },
     async session({ session, token }) {
@@ -91,7 +74,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.id as string;
         session.user.name = token.name;
         session.user.email = token.email ?? "";
-        (session.user as any).avatar = token.avatar || null;
+        session.user.avatar = token.avatar || null;
       }
       return session;
     },

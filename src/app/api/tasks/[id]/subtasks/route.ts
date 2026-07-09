@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { createSubtaskSchema, zodErr } from "@/lib/schemas";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || req.headers.get("x-real-ip")
+    || "unknown";
+  if (!rateLimit(`subtasks:${ip}`, 30, 60_000).success) {
+    return rateLimitResponse();
+  }
+
   try {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ error: "Avtorizatsiyadan o'tilmagan" }, { status: 401 });

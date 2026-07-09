@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { Prisma } from "@prisma/client";
 import { updateUserSchema, deleteAccountSchema, zodErr } from "@/lib/schemas";
 
 export async function GET() {
@@ -41,9 +42,12 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: zodErr(parsed.error) }, { status: 400 });
     }
 
-    const updateData: Record<string, string> = {};
+    const updateData: Prisma.UserUpdateInput = {};
+    const prismaFields = ["name", "timezone", "theme", "language"] as const;
     for (const [key, value] of Object.entries(parsed.data)) {
-      if (value !== undefined) updateData[key] = value as string;
+      if (value !== undefined && prismaFields.includes(key as typeof prismaFields[number])) {
+        updateData[key as keyof Prisma.UserUpdateInput] = value;
+      }
     }
 
     if (Object.keys(updateData).length === 0) {

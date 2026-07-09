@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { createTaskSchema, zodErr } from "@/lib/schemas";
+import { parseDateWithTime } from "@/lib/utils";
 export async function GET(req: Request) {
   try {
     const session = await auth();
@@ -11,7 +12,7 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url);
     const skip = Math.max(0, parseInt(url.searchParams.get("skip") || "0"));
-    const take = Math.min(100, Math.max(1, parseInt(url.searchParams.get("take") || "50")));
+    const take = Math.min(1000, Math.max(1, parseInt(url.searchParams.get("take") || "50")));
 
     const [tasks, total] = await Promise.all([
       db.task.findMany({
@@ -50,20 +51,7 @@ export async function POST(req: Request) {
 
     const { title, description, priority, dueDate: dDate, dueTime: dTime, category, isRecurring, recurrence } = parsed.data;
 
-    let dueDate: Date | null = null;
-    if (dDate) {
-      dueDate = new Date(dDate as string);
-      if (isNaN(dueDate.getTime())) dueDate = null;
-    }
-    let dueTime: Date | null = null;
-    if (dTime && dDate) {
-      const combined = new Date(dDate as string);
-      const [h, m] = (dTime as string).split(":").map(Number);
-      if (!isNaN(h) && !isNaN(m)) {
-        combined.setHours(h, m, 0, 0);
-        dueTime = combined;
-      }
-    }
+    const { date: dueDate, time: dueTime } = parseDateWithTime(dDate, dTime);
 
     let categoryId: string | null = null;
     if (category) {

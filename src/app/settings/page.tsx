@@ -18,13 +18,12 @@ import {
   Languages,
   LoaderCircle,
   CheckCircle2,
-  AlertCircle,
 } from "lucide-react";
 import { useThemeStore } from "@/store/theme-store";
 import { useUser, useUpdateUser } from "@/hooks/use-settings";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
-import type { User as UserType } from "@/types";
+import type { Task, User as UserType } from "@/types";
 
 const settingsSections = [
   { id: "profile", label: "Profil", icon: User },
@@ -326,7 +325,7 @@ export default function SettingsPage() {
                     const data = await res.json();
                     const tasks = Array.isArray(data) ? data : data.tasks;
                     const csv = [["Sarlavha", "Status", "Priority", "Muddat", "Kategoriya"]].concat(
-                      tasks.map((t: any) => [t.title, t.status, t.priority, t.dueDate || "", t.category?.name || ""])
+                      tasks.map((t: Task) => [t.title, t.status, t.priority, t.dueDate || "", t.category?.name || ""])
                     ).map((r) => r.join(",")).join("\n");
                     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
                     const url = URL.createObjectURL(blob);

@@ -25,11 +25,10 @@ import {
   AreaChart,
   Area,
 } from "recharts";
-import { ProgressBar } from "@/components/dashboard/progress-bar";
 import { useTasks } from "@/hooks/use-tasks";
 import { useStreak } from "@/hooks/use-streak";
 import { useThemeStore } from "@/store/theme-store";
-import { TaskStatus, TaskPriority } from "@/types";
+import { TaskStatus } from "@/types";
 import { startOfWeek, addDays, format } from "date-fns";
 import { uz } from "date-fns/locale";
 
@@ -139,7 +138,7 @@ export default function AnalyticsPage() {
             ["Jami vazifalar", totalTasks],
             ["Bajarilgan", completedCount],
             ["Bajarilish darajasi", `${completionRate}%`],
-            ["Haftalik", ...weeklyData.map(d => `${d.day}: ${d.completed}/${d.total}`)],
+            ...weeklyData.map(d => ["Haftalik", `${d.day}: ${d.completed}/${d.total}`]),
           ].map((r) => r.join(",")).join("\n");
           const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
           const url = URL.createObjectURL(blob);

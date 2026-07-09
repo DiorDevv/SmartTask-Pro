@@ -12,6 +12,8 @@ function getNextDate(pattern: string, from: Date): Date {
     case "monthly":
       next.setMonth(next.getMonth() + 1);
       break;
+    default:
+      next.setDate(next.getDate() + 1);
   }
   return next;
 }
@@ -19,7 +21,12 @@ function getNextDate(pattern: string, from: Date): Date {
 export async function handleRecurringTask(taskId: string) {
   const task = await db.task.findUnique({
     where: { id: taskId },
-    include: { subtasks: true },
+    include: {
+      subtasks: true,
+      attachments: true,
+      reminders: true,
+      tags: true,
+    },
   });
 
   if (!task || !task.isRecurring || !task.recurrence) return;
@@ -44,12 +51,35 @@ export async function handleRecurringTask(taskId: string) {
       recurrence: task.recurrence,
       categoryId: task.categoryId,
       userId: task.userId,
+      tags: { connect: task.tags.map((t) => ({ id: t.id })) },
     },
   });
 
   for (const sub of task.subtasks) {
     await db.subTask.create({
       data: { title: sub.title, taskId: newTask.id },
+    });
+  }
+
+  for (const att of task.attachments) {
+    await db.attachment.create({
+      data: {
+        name: att.name,
+        url: att.url,
+        type: att.type,
+        size: att.size,
+        taskId: newTask.id,
+      },
+    });
+  }
+
+  for (const rem of task.reminders) {
+    await db.reminder.create({
+      data: {
+        remindAt: rem.remindAt,
+        type: rem.type,
+        taskId: newTask.id,
+      },
     });
   }
 }

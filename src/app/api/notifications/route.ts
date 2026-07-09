@@ -6,8 +6,11 @@ import {
   markAsRead,
   markAllAsRead,
   checkAndCreateDueNotifications,
+  createNotification,
 } from "@/lib/notifications";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+
+const ALLOWED_NOTIFICATION_TYPES = ["task_due", "task_completed", "task_overdue", "streak", "system"];
 
 export async function GET(req: Request) {
   try {
@@ -72,8 +75,10 @@ export async function POST(req: Request) {
     if (!type || !title) {
       return NextResponse.json({ error: "type va title talab qilinadi" }, { status: 400 });
     }
+    if (!ALLOWED_NOTIFICATION_TYPES.includes(type)) {
+      return NextResponse.json({ error: "Noto'g'ri bildirishnoma turi" }, { status: 400 });
+    }
 
-    const { createNotification } = await import("@/lib/notifications");
     const notification = await createNotification({
       userId: session.user.id,
       type,

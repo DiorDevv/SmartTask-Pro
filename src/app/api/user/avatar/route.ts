@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { writeFile, mkdir } from "fs/promises";
+import { writeFile, mkdir, unlink } from "fs/promises";
 import path from "path";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
@@ -42,6 +42,16 @@ export async function POST(req: Request) {
     const fileName = `${session.user.id}_${Date.now()}.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
     await writeFile(path.join(uploadsDir, fileName), buffer);
+
+    const currentUser = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { avatar: true },
+    });
+
+    if (currentUser?.avatar?.startsWith("/uploads/")) {
+      const oldPath = path.join(process.cwd(), "public", currentUser.avatar);
+      try { await unlink(oldPath); } catch { /* file may not exist */ }
+    }
 
     const avatarUrl = `/uploads/${fileName}`;
     await db.user.update({ where: { id: session.user.id }, data: { avatar: avatarUrl } });

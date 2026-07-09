@@ -32,14 +32,23 @@ export function formatTime(date: Date | string | null | undefined): string {
   return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
 }
 
-export function getStatusColor(status: string): string {
-  const colors: Record<string, string> = {
-    PENDING: "#F59E0B",
-    IN_PROGRESS: "#3B82F6",
-    COMPLETED: "#10B981",
-    FAILED: "#EF4444",
-    POSTPONED: "#F97316",
-    CANCELLED: "#6B7280",
-  };
-  return colors[status] || "#6B7280";
+export function parseDateWithTime(dateStr: string | null | undefined, timeStr: string | null | undefined): { date: Date | null; time: Date | null } {
+  if (!dateStr) return { date: null, time: null };
+
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return { date: null, time: null };
+
+  let time: Date | null = null;
+  if (timeStr) {
+    const combined = new Date(dateStr);
+    const [h, m] = timeStr.split(":").map(Number);
+    if (!isNaN(h) && !isNaN(m)) {
+      combined.setHours(h, m, 0, 0);
+      time = combined;
+    }
+  }
+
+  return { date, time };
 }
+
+
