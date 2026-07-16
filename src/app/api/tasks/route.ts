@@ -34,7 +34,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for") || "unknown";
-  if (!rateLimit(`tasks-create:${ip}`, 20, 60_000).success) {
+  if (!(await rateLimit(`tasks-create:${ip}`, 20, 60_000)).success) {
     return rateLimitResponse();
   }
 

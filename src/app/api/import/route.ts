@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import type { ExportData } from "@/lib/export-utils";
 import { parseXlsxToJson } from "@/lib/export-utils";
+import { importDataSchema, zodErr } from "@/lib/schemas";
 
 export async function POST(req: Request) {
   try {
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
       || req.headers.get("x-real-ip")
       || "unknown";
-    if (!rateLimit(`import:${ip}`, 5, 60_000).success) {
+    if (!(await rateLimit(`import:${ip}`, 5, 60_000)).success) {
       return rateLimitResponse();
     }
 
@@ -47,10 +48,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Noto'g'ri format: tasks massivi topilmadi" }, { status: 400 });
     }
 
+    const parsed = importDataSchema.safeParse(data);
+    if (!parsed.success) {
+      return NextResponse.json({ error: zodErr(parsed.error) }, { status: 400 });
+    }
+
     let imported = 0;
     let errors = 0;
 
-    for (const t of data.tasks) {
+    for (const t of parsed.data.tasks) {
       try {
         let categoryId: string | null = null;
         if (t.category?.name) {
@@ -88,8 +94,8 @@ export async function POST(req: Request) {
           data: {
             title: t.title,
             description: t.description,
-            status: (t.status as any) || "PENDING",
-            priority: (t.priority as any) || "MEDIUM",
+            status: t.status,
+            priority: t.priority,
             dueDate: t.dueDate ? new Date(t.dueDate) : null,
             dueTime: t.dueTime ? new Date(t.dueTime) : null,
             isRecurring: t.isRecurring ?? false,
@@ -131,7 +137,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       imported,
       errors,
-      total: data.tasks.length,
+      total: parsed.data.tasks.length,
       message: `${imported} ta vazifa import qilindi, ${errors} ta xatolik`,
     });
   } catch (e) {

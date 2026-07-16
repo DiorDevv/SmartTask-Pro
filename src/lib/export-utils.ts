@@ -189,6 +189,15 @@ export async function getFullExportData(userId: string): Promise<ExportData> {
   };
 }
 
+const CSV_FORMULA_PREFIXES = ["=", "+", "-", "@", "\t", "\r"];
+
+function sanitizeCsvCell(value: string): string {
+  if (value.length > 0 && CSV_FORMULA_PREFIXES.includes(value[0])) {
+    return `'${value}`;
+  }
+  return value;
+}
+
 export function jsonToCsv(data: ExportData): string {
   const rows: string[][] = [];
 
@@ -227,7 +236,7 @@ export function jsonToCsv(data: ExportData): string {
     ]);
   }
 
-  return rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
+  return rows.map((r) => r.map((c) => `"${sanitizeCsvCell(c).replace(/"/g, '""')}"`).join(",")).join("\n");
 }
 
 export async function jsonToXlsx(data: ExportData): Promise<Buffer> {

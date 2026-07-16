@@ -24,7 +24,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           || request?.headers?.get("x-real-ip")
           || "unknown";
         const rlKey = `login:${ip}`;
-        if (!rateLimit(rlKey, 5, 60_000).success) return null;
+        if (!(await rateLimit(rlKey, 5, 60_000)).success) return null;
 
         const user = await db.user.findUnique({
           where: { email: credentials.email as string },

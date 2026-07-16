@@ -63,7 +63,7 @@ export const updateUserSchema = z.object({
 });
 
 export const deleteAccountSchema = z.object({
-  password: reqStr("Parol talab qilinadi"),
+  password: z.string().optional(),
 });
 
 export const forgotPasswordSchema = z.object({
@@ -79,4 +79,51 @@ export const registerSchema = z.object({
   name: reqStr("Ism talab qilinadi").max(100),
   email: reqEmail("Email talab qilinadi"),
   password: reqStr("Parol talab qilinadi").min(6, "Parol kamida 6 belgidan iborat bo'lishi kerak"),
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: reqStr("Joriy parol talab qilinadi"),
+  newPassword: reqStr("Yangi parol talab qilinadi").min(6, "Parol kamida 6 belgidan iborat bo'lishi kerak"),
+});
+
+const importCategorySchema = z.object({
+  name: z.string().max(50),
+  color: z.string().max(20).optional().nullable(),
+});
+
+const importTagSchema = z.object({
+  name: z.string().max(50),
+  color: z.string().max(20).optional().nullable(),
+});
+
+const importSubtaskSchema = z.object({
+  title: z.string().max(200),
+  completed: z.boolean().optional().default(false),
+});
+
+const importReminderSchema = z.object({
+  remindAt: z.string(),
+  type: z.string().max(20).optional().default("push"),
+  sent: z.boolean().optional().default(false),
+});
+
+export const importTaskSchema = z.object({
+  title: reqStr("Vazifa nomi talab qilinadi").max(200),
+  description: z.string().max(5000).nullable().optional(),
+  status: z.enum(validStatuses).optional().default("PENDING"),
+  priority: z.enum(validPriorities).optional().default("MEDIUM"),
+  dueDate: z.string().nullable().optional(),
+  dueTime: z.string().nullable().optional(),
+  isRecurring: z.boolean().optional().default(false),
+  recurrence: z.enum(validRecurrences).nullable().optional(),
+  completedAt: z.string().nullable().optional(),
+  archivedAt: z.string().nullable().optional(),
+  category: importCategorySchema.nullable().optional(),
+  subtasks: z.array(importSubtaskSchema).max(200).optional().default([]),
+  tags: z.array(importTagSchema).max(100).optional().default([]),
+  reminders: z.array(importReminderSchema).max(100).optional().default([]),
+});
+
+export const importDataSchema = z.object({
+  tasks: z.array(importTaskSchema).max(500, "Bir martada 500 tadan ortiq vazifa import qilib bo'lmaydi"),
 });

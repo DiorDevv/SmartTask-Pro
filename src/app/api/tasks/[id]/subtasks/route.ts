@@ -8,7 +8,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
     || req.headers.get("x-real-ip")
     || "unknown";
-  if (!rateLimit(`subtasks:${ip}`, 30, 60_000).success) {
+  if (!(await rateLimit(`subtasks:${ip}`, 30, 60_000)).success) {
     return rateLimitResponse();
   }
 

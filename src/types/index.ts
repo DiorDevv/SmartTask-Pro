@@ -95,6 +95,7 @@ export interface User {
   language: string;
   createdAt: Date;
   updatedAt: Date;
+  hasPassword?: boolean;
 }
 
 export interface AppNotification {

@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
     || req.headers.get("x-real-ip")
     || "unknown";
-  if (!rateLimit(`register:${ip}`, 5, 60_000).success) {
+  if (!(await rateLimit(`register:${ip}`, 5, 60_000)).success) {
     return rateLimitResponse();
   }
 
@@ -34,7 +34,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ id: user.id, email: user.email, name: user.name }, { status: 201 });
   } catch (e) {
     console.error("Register error:", e);
-    const message = e instanceof Error ? e.message : "Xatolik yuz berdi";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Xatolik yuz berdi" }, { status: 500 });
   }
 }

@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     if (!session?.user?.id) return NextResponse.json({ error: "Avtorizatsiyadan o'tilmagan" }, { status: 401 });
 
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    if (!rateLimit(`avatar:${ip}`, 10, 60_000).success) {
+    if (!(await rateLimit(`avatar:${ip}`, 10, 60_000)).success) {
       return rateLimitResponse();
     }
 

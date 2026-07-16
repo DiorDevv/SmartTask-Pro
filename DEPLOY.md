@@ -81,6 +81,18 @@ npm start
 | `NEXTAUTH_URL` | Saytning to'liq URL'i | `https://reja.example.com` |
 | `AUTH_TRUST_HOST` | Proxy orqasida bo'lsa `true` | `true` |
 | `DB_PASSWORD` | PostgreSQL paroli (Docker) | `reja123` |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Rate limiting uchun Redis (ixtiyoriy, Vercel'da tavsiya etiladi) | console.upstash.com |
+| `CRON_SECRET` | Takrorlanuvchi vazifalarni yangilovchi cron endpoint'ni himoyalaydi | `openssl rand -hex 32` |
+
+## Takrorlanuvchi vazifalar (cron)
+
+Takrorlanuvchi vazifalarni har kuni avtomatik yangilash uchun `/api/cron/recurring` endpoint'i `Authorization: Bearer $CRON_SECRET` header talab qiladi.
+
+- **Vercel**: `vercel.json`dagi `crons` sozlamasi orqali avtomatik ishlaydi (Vercel muhit o'zgaruvchisi sifatida `CRON_SECRET`ni belgilang).
+- **Docker/o'z serveringiz**: server crontab'iga qo'shing, masalan har kuni 00:00da:
+  ```bash
+  0 0 * * * curl -s -H "Authorization: Bearer $CRON_SECRET" https://your-domain.com/api/cron/recurring
+  ```
 
 ## Tekshirish
 

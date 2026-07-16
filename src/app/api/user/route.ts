@@ -13,11 +13,12 @@ export async function GET() {
 
     const user = await db.user.findUnique({
       where: { id: session.user.id },
-      select: { id: true, name: true, email: true, avatar: true, timezone: true, theme: true, language: true, createdAt: true },
+      select: { id: true, name: true, email: true, avatar: true, timezone: true, theme: true, language: true, createdAt: true, password: true },
     });
     if (!user) return NextResponse.json({ error: "Foydalanuvchi topilmadi" }, { status: 404 });
 
-    return NextResponse.json(user);
+    const { password, ...userWithoutPassword } = user;
+    return NextResponse.json({ ...userWithoutPassword, hasPassword: !!password });
   } catch (e) {
     console.error("GET /api/user error:", e);
     return NextResponse.json({ error: "Xatolik yuz berdi" }, { status: 500 });
@@ -32,7 +33,7 @@ export async function PATCH(req: Request) {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
       || req.headers.get("x-real-ip")
       || "unknown";
-    if (!rateLimit(`user:${ip}`, 30, 60_000).success) {
+    if (!(await rateLimit(`user:${ip}`, 30, 60_000)).success) {
       return rateLimitResponse();
     }
 
@@ -83,6 +84,7 @@ export async function DELETE(req: Request) {
     if (!user) return NextResponse.json({ error: "Foydalanuvchi topilmadi" }, { status: 404 });
 
     if (user.password) {
+      if (!password) return NextResponse.json({ error: "Parol talab qilinadi" }, { status: 400 });
       const isValid = await bcrypt.compare(password, user.password);
       if (!isValid) return NextResponse.json({ error: "Noto'g'ri parol" }, { status: 403 });
     }

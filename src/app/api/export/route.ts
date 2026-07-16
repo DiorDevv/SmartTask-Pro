@@ -16,7 +16,7 @@ export async function GET(req: Request) {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
       || req.headers.get("x-real-ip")
       || "unknown";
-    if (!rateLimit(`export:${ip}`, 10, 60_000).success) {
+    if (!(await rateLimit(`export:${ip}`, 10, 60_000)).success) {
       return rateLimitResponse();
     }
 

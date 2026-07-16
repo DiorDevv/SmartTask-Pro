@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
   User,
@@ -25,6 +25,8 @@ import {
   FileDown,
   Archive,
   Trash2,
+  KeyRound,
+  X,
 } from "lucide-react";
 import { useThemeStore } from "@/store/theme-store";
 import { useUser, useUpdateUser } from "@/hooks/use-settings";
@@ -58,6 +60,15 @@ export default function SettingsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [exporting, setExporting] = useState<"json" | "csv" | "xlsx" | null>(null);
   const [importing, setImporting] = useState(false);
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -116,6 +127,60 @@ export default function SettingsPage() {
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast.error("Yangi parollar mos kelmadi");
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      const res = await fetch("/api/user/password", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.message || "Parol yangilandi");
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+      } else {
+        toast.error(data.error || "Xatolik yuz berdi");
+      }
+    } catch {
+      toast.error("Xatolik yuz berdi");
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (user?.hasPassword && !deletePassword) {
+      toast.error("Parolni kiriting");
+      return;
+    }
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/user", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: deletePassword || undefined }),
+      });
+      if (res.ok) {
+        window.location.href = "/auth/login";
+        return;
+      }
+      const d = await res.json();
+      toast.error(d.error || "Xatolik");
+    } catch {
+      toast.error("Xatolik yuz berdi");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -346,6 +411,61 @@ export default function SettingsPage() {
             >
               <h3 className="text-lg font-semibold text-text dark:text-text-dark">Xavfsizlik sozlamalari</h3>
 
+              {user?.hasPassword ? (
+                <form onSubmit={handleChangePassword} className="space-y-4 pb-4 border-b border-gray-100 dark:border-gray-700">
+                  <h4 className="text-sm font-medium text-muted flex items-center gap-1.5">
+                    <KeyRound className="w-4 h-4" />
+                    Parolni almashtirish
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-muted mb-1.5">Joriy parol</label>
+                      <input
+                        type="password"
+                        className="input"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        autoComplete="current-password"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-muted mb-1.5">Yangi parol</label>
+                      <input
+                        type="password"
+                        className="input"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        autoComplete="new-password"
+                        minLength={6}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-muted mb-1.5">Yangi parolni tasdiqlang</label>
+                      <input
+                        type="password"
+                        className="input"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        autoComplete="new-password"
+                        minLength={6}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <button type="submit" className="btn-primary btn-md" disabled={changingPassword}>
+                      {changingPassword ? "Yangilanmoqda..." : "Parolni yangilash"}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <p className="text-sm text-muted pb-4 border-b border-gray-100 dark:border-gray-700">
+                  Hisobingiz ijtimoiy tarmoq orqali yaratilgan, shuning uchun parol o'rnatilmagan.
+                </p>
+              )}
+
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-text dark:text-text-dark">Ikki faktorli autentifikatsiya (2FA)</p>
@@ -358,15 +478,9 @@ export default function SettingsPage() {
               </div>
 
               <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
-                <button className="btn-danger btn-sm" onClick={async () => {
-                  const password = prompt("Hisobni o'chirish uchun parolingizni kiriting:");
-                  if (!password) return;
-                  try {
-                    const res = await fetch("/api/user", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
-                    if (res.ok) { window.location.href = "/auth/login"; }
-                    else { const d = await res.json(); toast.error(d.error || "Xatolik"); }
-                  } catch { toast.error("Xatolik yuz berdi"); }
-                }}>Hisobni o'chirish</button>
+                <button className="btn-danger btn-sm" onClick={() => setShowDeleteModal(true)}>
+                  Hisobni o'chirish
+                </button>
               </div>
             </motion.div>
           )}
@@ -588,6 +702,76 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+
+      <AnimatePresence>
+        {showDeleteModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => { if (!deleting) { setShowDeleteModal(false); setDeletePassword(""); } }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Hisobni o'chirishni tasdiqlash"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", duration: 0.4, bounce: 0.3 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm bg-white dark:bg-gray-900 rounded-2xl shadow-modal border border-gray-100 dark:border-gray-800 overflow-hidden"
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+                <h2 className="text-lg font-bold text-gray-900 dark:text-gray-50">Hisobni o'chirish</h2>
+                <button
+                  onClick={() => { setShowDeleteModal(false); setDeletePassword(""); }}
+                  className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form
+                onSubmit={(e) => { e.preventDefault(); handleDeleteAccount(); }}
+                className="p-6 space-y-4"
+              >
+                <p className="text-sm text-muted">
+                  Bu amalni qaytarib bo'lmaydi. Barcha vazifalaringiz, kategoriyalaringiz va hisobingiz butunlay o'chiriladi.
+                </p>
+                {user?.hasPassword && (
+                  <div>
+                    <label className="block text-sm font-medium text-muted mb-1.5">Parolingizni kiriting</label>
+                    <input
+                      type="password"
+                      className="input"
+                      value={deletePassword}
+                      onChange={(e) => setDeletePassword(e.target.value)}
+                      autoComplete="current-password"
+                      autoFocus
+                      required
+                    />
+                  </div>
+                )}
+                <div className="flex justify-end gap-3">
+                  <button
+                    type="button"
+                    className="btn-secondary btn-md"
+                    onClick={() => { setShowDeleteModal(false); setDeletePassword(""); }}
+                    disabled={deleting}
+                  >
+                    Bekor qilish
+                  </button>
+                  <button type="submit" className="btn-danger btn-md" disabled={deleting}>
+                    {deleting ? "O'chirilmoqda..." : "Ha, o'chirish"}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

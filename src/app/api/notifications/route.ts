@@ -42,7 +42,7 @@ export async function PATCH(req: Request) {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
       || req.headers.get("x-real-ip")
       || "unknown";
-    if (!rateLimit(`notifications:${ip}`, 30, 60_000).success) {
+    if (!(await rateLimit(`notifications:${ip}`, 30, 60_000)).success) {
       return rateLimitResponse();
     }
 
@@ -69,6 +69,13 @@ export async function POST(req: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ error: "Avtorizatsiyadan o'tilmagan" }, { status: 401 });
+
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      || req.headers.get("x-real-ip")
+      || "unknown";
+    if (!(await rateLimit(`notifications-create:${ip}`, 30, 60_000)).success) {
+      return rateLimitResponse();
+    }
 
     const body = await req.json();
     const { type, title, message, taskId } = body;
