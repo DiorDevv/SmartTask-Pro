@@ -87,3 +87,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Xatolik yuz berdi" }, { status: 500 });
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json({ error: "Avtorizatsiyadan o'tilmagan" }, { status: 401 });
+
+    const url = new URL(req.url);
+    if (url.searchParams.get("scope") !== "archived") {
+      return NextResponse.json({ error: "scope=archived parametri talab qilinadi" }, { status: 400 });
+    }
+
+    const { count } = await db.task.deleteMany({
+      where: { userId: session.user.id, archivedAt: { not: null } },
+    });
+
+    return NextResponse.json({ success: true, deleted: count });
+  } catch (e) {
+    console.error("DELETE /api/tasks error:", e);
+    return NextResponse.json({ error: "Xatolik yuz berdi" }, { status: 500 });
+  }
+}

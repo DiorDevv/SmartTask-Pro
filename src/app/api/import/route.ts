@@ -73,7 +73,7 @@ export async function POST(req: Request) {
           }
         }
 
-        let tagIds: string[] = [];
+        const tagIds: string[] = [];
         if (t.tags && t.tags.length > 0) {
           for (const tg of t.tags) {
             const existing = await db.tag.findFirst({

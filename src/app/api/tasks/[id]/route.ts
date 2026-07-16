@@ -6,6 +6,7 @@ import { handleRecurringTask } from "@/lib/recurring";
 import { notifyTaskCompleted } from "@/lib/notifications";
 import { updateTaskSchema, zodErr } from "@/lib/schemas";
 import { parseDateWithTime } from "@/lib/utils";
+import { Prisma } from "@prisma/client";
 
 async function getOwnedTask(id: string, userId: string) {
   const task = await db.task.findUnique({ where: { id } });
@@ -109,7 +110,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json(task);
   } catch (e) {
     console.error("PATCH /api/tasks/[id] error:", e);
-    if (e instanceof Error && "code" in e && (e as any).code === "P2025") {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") {
       return NextResponse.json({ error: "Vazifa topilmadi" }, { status: 404 });
     }
     return NextResponse.json({ error: "Xatolik yuz berdi" }, { status: 500 });

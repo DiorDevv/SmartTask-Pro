@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { db } from "@/lib/db";
 import { handleRecurringTask } from "@/lib/recurring";
+
+function isValidCronSecret(authHeader: string | null, secret: string): boolean {
+  const expected = Buffer.from(`Bearer ${secret}`);
+  const actual = Buffer.from(authHeader || "");
+  if (expected.length !== actual.length) return false;
+  return timingSafeEqual(expected, actual);
+}
 
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
@@ -10,7 +18,7 @@ export async function GET(req: Request) {
   }
 
   const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${secret}`) {
+  if (!isValidCronSecret(authHeader, secret)) {
     return NextResponse.json({ error: "Ruxsat etilmagan" }, { status: 401 });
   }
 

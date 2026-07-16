@@ -607,9 +607,16 @@ export default function SettingsPage() {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       className="flex items-center gap-3 p-4 rounded-xl border border-red-200 dark:border-red-800 hover:border-red-400 dark:hover:border-red-600 hover:bg-red-50/50 dark:hover:bg-red-900/20 transition-all"
-                      onClick={() => {
-                        if (confirm("Barcha arxivlangan vazifalarni tozalashni xohlaysizmi?")) {
-                          toast.success("Arxiv tozalanmadi (hali ishlab chiqilmoqda)");
+                      onClick={async () => {
+                        if (!confirm("Barcha arxivlangan vazifalarni tozalashni xohlaysizmi?")) return;
+                        try {
+                          const res = await fetch("/api/tasks?scope=archived", { method: "DELETE" });
+                          if (!res.ok) throw new Error();
+                          const data = await res.json();
+                          toast.success(`${data.deleted} ta arxivlangan vazifa o'chirildi`);
+                          queryClient.invalidateQueries({ queryKey: ["tasks"] });
+                        } catch {
+                          toast.error("Arxivni tozalashda xatolik yuz berdi");
                         }
                       }}
                     >

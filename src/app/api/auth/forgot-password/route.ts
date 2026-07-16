@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import crypto from "crypto";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { forgotPasswordSchema, zodErr } from "@/lib/schemas";
+import { sendPasswordResetEmail } from "@/lib/mailer";
 
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
@@ -42,6 +43,8 @@ export async function POST(req: Request) {
     if (process.env.NODE_ENV !== "production") {
       console.log(`[DEV] Password reset link: ${resetUrl}`);
     }
+
+    await sendPasswordResetEmail(email, resetUrl);
 
     return NextResponse.json({ message: "Agar email tizimda mavjud bo'lsa, parolni tiklash linki yuboriladi" });
   } catch (e) {
